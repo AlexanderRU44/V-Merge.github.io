@@ -2,6 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>V-Merge</title>
     <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/AlexanderRU44/TV.github.io/refs/heads/Icons/ICONS/android-chrome-192x192.png">
     
@@ -18,6 +19,7 @@
             right: 20px;
             display: flex;
             gap: 10px;
+            z-index: 100;
         }
         .btn-lang {
             background: #21262d;
@@ -45,16 +47,27 @@
         .btn-lang.active img { filter: grayscale(0%); }
 
         h2 { color: #f0f6fc; font-weight: 400; margin-bottom: 30px; text-align: center; }
-        .container { display: flex; gap: 20px; max-width: 1400px; margin: 0 auto; height: 85vh; }
+        
+        .container { 
+            display: flex; 
+            gap: 20px; 
+            max-width: 1400px; 
+            margin: 0 auto; 
+            height: calc(100vh - 140px); 
+        }
+        
         .column { 
             flex: 1; display: flex; flex-direction: column; 
             background: #161b22; padding: 20px; border-radius: 10px; 
             border: 1px solid #30363d; box-shadow: 0 4px 20px rgba(0,0,0,0.3); overflow: hidden; 
         }
+
         textarea, #resultDisplay { 
             flex-grow: 1; width: 100%; padding: 15px; border: 1px solid #30363d; 
             border-radius: 6px; font-family: monospace; font-size: 13px; 
-            background-color: #0d1117; color: #d1d5da; box-sizing: border-box; overflow-y: auto; 
+            background-color: #0d1117; color: #d1d5da; box-sizing: border-box; 
+            overflow-y: auto; 
+            resize: none; /* Запрет растягивания */
         }
         #resultDisplay { white-space: pre-wrap; outline: none; }
         
@@ -70,21 +83,26 @@
             border-radius: 6px; font-weight: 600; transition: 0.2s; 
         }
         
-        .btn-merge { background: #238636; color: white; border: none; }
-        .btn-merge:hover { background: #2ea043; }
-        .btn-copy { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; }
-        .btn-copy:hover { background: #30363d; }
-        .btn-download { background: #1f6feb; color: white; border: none; }
-        .btn-download:hover { background: #388bfd; }
-        .btn-clear { background: #442d30; color: #f85149; border: 1px solid #6e2121; }
-        .btn-clear:hover { background: #6e2121; color: white; }
+        .btn-merge { background: #238636; color: white; border: none; flex-grow: 1; }
+        .btn-copy { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; flex-grow: 1; }
+        .btn-download { background: #1f6feb; color: white; border: none; flex-grow: 1; }
+        .btn-clear { background: #442d30; color: #f85149; border: 1px solid #6e2121; flex-grow: 1; }
         .btn-next { background: #1f6feb; color: white; border: none; }
-        .btn-next:hover { background: #388bfd; }
 
         mark { background-color: rgba(187, 128, 9, 0.6); color: #fff; padding: 2px 0; border-radius: 2px; }
         mark.current { background-color: #f78166; box-shadow: 0 0 10px #f78166; } 
-        
         #status { margin-top: 10px; font-size: 0.85em; font-family: monospace; color: #8b949e; }
+
+        /* МОБИЛЬНАЯ АДАПТАЦИЯ */
+        @media (max-width: 850px) {
+            body { padding: 10px; padding-top: 70px; }
+            .lang-panel { top: 15px; right: 15px; }
+            h2 { margin-top: 0; font-size: 1.5rem; text-align: center; width: 100%; position: relative; }
+            .container { flex-direction: column; height: auto; gap: 15px; }
+            .column { height: auto; min-height: 350px; padding: 15px; }
+            textarea, #resultDisplay { height: 280px; flex-grow: 0; }
+            button { font-size: 13px; padding: 12px 10px; }
+        }
     </style>
 </head>
 <body>
@@ -102,7 +120,7 @@
 
     <div class="container">
         <div class="column">
-            <h3 id="labelUrls">Ссылки на файлы</h3>
+            <h3 id="labelUrls" style="margin-top:0">Ссылки на файлы</h3>
             <textarea id="urls" placeholder="Вставьте ссылки (каждая с новой строки)..."></textarea>
             <div class="controls">
                 <button class="btn-merge" id="btnMerge" onclick="processFiles()">Объединить и очистить</button>
@@ -117,7 +135,7 @@
             </div>
             <div id="resultDisplay" contenteditable="true" spellcheck="false"></div>
             <div class="controls">
-                <button class="btn-copy" id="btnCopy" onclick="copyToClipboard()">Копировать результат</button>
+                <button class="btn-copy" id="btnCopy" onclick="copyToClipboard()">Копировать</button>
                 <button class="btn-download" id="btnDownload" onclick="downloadTxt()">Скачать .TXT</button>
                 <button class="btn-clear" id="btnClear" onclick="clearAll()">Очистить всё</button>
             </div>
@@ -137,11 +155,11 @@
                 statusReady: "Готов",
                 statusLoading: "Загрузка данных...",
                 statusErrorUrls: "Ошибка: введите ссылки",
-                statusErrorFetch: "Ошибка загрузки части данных",
-                statusSuccess: "Готово! Найдено уникальных строк: ",
+                statusErrorFetch: "Ошибка загрузки данных",
+                statusSuccess: "Готово! Уникальных строк: ",
                 searchPlaceholder: "Поиск в результате...",
                 btnNext: "Далее →",
-                btnCopy: "Копировать результат",
+                btnCopy: "Копировать",
                 btnDownload: "Скачать .TXT",
                 btnClear: "Очистить всё",
                 copied: "Скопировано!"
@@ -153,11 +171,11 @@
                 statusReady: "Ready",
                 statusLoading: "Loading data...",
                 statusErrorUrls: "Error: enter links",
-                statusErrorFetch: "Error loading some data",
-                statusSuccess: "Done! Unique rows found: ",
+                statusErrorFetch: "Error loading data",
+                statusSuccess: "Done! Unique rows: ",
                 searchPlaceholder: "Search in result...",
                 btnNext: "Next →",
-                btnCopy: "Copy result",
+                btnCopy: "Copy",
                 btnDownload: "Download .TXT",
                 btnClear: "Clear All",
                 copied: "Copied!"
@@ -167,10 +185,8 @@
         function setLanguage(lang) {
             currentLang = lang;
             const t = translations[lang];
-            
             document.querySelectorAll('.btn-lang').forEach(btn => btn.classList.remove('active'));
             document.getElementById(`btn-${lang}`).classList.add('active');
-
             document.getElementById('labelUrls').innerText = t.labelUrls;
             document.getElementById('urls').placeholder = t.urlsPlaceholder;
             document.getElementById('btnMerge').innerText = t.btnMerge;
@@ -180,114 +196,84 @@
             document.getElementById('btnCopy').innerText = t.btnCopy;
             document.getElementById('btnDownload').innerText = t.btnDownload;
             document.getElementById('btnClear').innerText = t.btnClear;
-            
             document.documentElement.lang = lang;
         }
 
         async function processFiles() {
-            const urlsText = document.getElementById('urls').value;
-            const display = document.getElementById('resultDisplay');
-            const status = document.getElementById('status');
-            const t = translations[currentLang];
-            
-            const urls = urlsText.split('\n').map(url => url.trim()).filter(url => url !== "");
-            
+            const urlsArea = document.getElementById('urls');
+            const status = document.getElementById('statusText');
+            const resultDisplay = document.getElementById('resultDisplay');
+            const urls = urlsArea.value.split('\n').map(u => u.trim()).filter(u => u);
+
             if (urls.length === 0) {
-                status.innerHTML = `> <span style="color:#f85149">${t.statusErrorUrls}</span>`;
+                status.innerText = translations[currentLang].statusErrorUrls;
                 return;
             }
 
-            status.innerHTML = `> <span>${t.statusLoading}</span>`;
-            let combinedRows = [];
+            status.innerText = translations[currentLang].statusLoading;
+            let combinedText = "";
 
             try {
                 for (const url of urls) {
                     const response = await fetch(url);
-                    if (!response.ok) throw new Error();
-                    const text = await response.text();
-                    combinedRows = combinedRows.concat(text.split(/\r?\n/));
+                    if (response.ok) {
+                        combinedText += await response.text() + "\n";
+                    }
                 }
-
-                const uniqueRows = [...new Set(combinedRows.map(r => r.trim()).filter(r => r !== ""))];
-                rawContent = uniqueRows.join('\n');
-                display.innerText = rawContent;
-                status.innerHTML = `> <span style="color:#3fb950">${t.statusSuccess}${uniqueRows.length}</span>`;
+                const uniqueLines = [...new Set(combinedText.split('\n').map(l => l.trim()).filter(l => l))];
+                rawContent = uniqueLines.join('\n');
+                resultDisplay.innerText = rawContent;
+                status.innerText = translations[currentLang].statusSuccess + uniqueLines.length;
             } catch (e) {
-                status.innerHTML = `> <span style="color:#f85149">${t.statusErrorFetch}</span>`;
+                status.innerText = translations[currentLang].statusErrorFetch;
             }
         }
 
-        function copyToClipboard() {
+        function highlightText() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
             const display = document.getElementById('resultDisplay');
-            const t = translations[currentLang];
-            const btn = document.getElementById('btnCopy');
-            
-            const text = display.innerText;
+            if (!query) { display.innerText = rawContent; return; }
+            const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(`(${escapedQuery})`, 'gi');
+            display.innerHTML = rawContent.replace(regex, '<mark>$1</mark>');
+            currentMarkIndex = -1;
+        }
+
+        function scrollToNext() {
+            const marks = document.querySelectorAll('mark');
+            if (marks.length === 0) return;
+            marks.forEach(m => m.classList.remove('current'));
+            currentMarkIndex = (currentMarkIndex + 1) % marks.length;
+            const target = marks[currentMarkIndex];
+            target.classList.add('current');
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        function copyToClipboard() {
+            const text = document.getElementById('resultDisplay').innerText;
             navigator.clipboard.writeText(text).then(() => {
-                const originalText = t.btnCopy;
-                btn.innerText = t.copied;
-                btn.style.borderColor = "#3fb950";
-                setTimeout(() => {
-                    btn.innerText = originalText;
-                    btn.style.borderColor = "#30363d";
-                }, 2000);
+                const btn = document.getElementById('btnCopy');
+                const oldText = btn.innerText;
+                btn.innerText = translations[currentLang].copied;
+                setTimeout(() => btn.innerText = oldText, 2000);
             });
         }
 
         function downloadTxt() {
             const text = document.getElementById('resultDisplay').innerText;
-            if (!text) return;
-
             const blob = new Blob([text], { type: 'text/plain' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.style.display = 'none';
-            a.href = url;
-            a.download = 'merged_results.txt';
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
+            const anchor = document.createElement('a');
+            anchor.download = 'merged_result.txt';
+            anchor.href = URL.createObjectURL(blob);
+            anchor.click();
         }
 
         function clearAll() {
-            if (confirm(currentLang === 'ru' ? "Очистить все поля?" : "Clear all fields?")) {
-                document.getElementById('urls').value = "";
-                document.getElementById('resultDisplay').innerText = "";
-                document.getElementById('searchInput').value = "";
-                document.getElementById('statusText').innerText = translations[currentLang].statusReady;
-                rawContent = "";
-            }
-        }
-
-        function highlightText() {
-            const input = document.getElementById('searchInput').value.toLowerCase();
-            const display = document.getElementById('resultDisplay');
-            
-            if (!input) {
-                display.innerText = rawContent;
-                currentMarkIndex = -1;
-                return;
-            }
-
-            const regex = new RegExp(`(${input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-            const html = rawContent.replace(regex, '<mark>$1</mark>');
-            display.innerHTML = html;
-            currentMarkIndex = -1;
-        }
-
-        function scrollToNext() {
-            const marks = document.querySelectorAll('#resultDisplay mark');
-            if (marks.length === 0) return;
-
-            marks.forEach(m => m.classList.remove('current'));
-            
-            currentMarkIndex++;
-            if (currentMarkIndex >= marks.length) currentMarkIndex = 0;
-
-            const target = marks[currentMarkIndex];
-            target.classList.add('current');
-            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            document.getElementById('urls').value = '';
+            document.getElementById('resultDisplay').innerText = '';
+            document.getElementById('searchInput').value = '';
+            document.getElementById('statusText').innerText = translations[currentLang].statusReady;
+            rawContent = "";
         }
     </script>
 </body>
