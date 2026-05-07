@@ -73,8 +73,7 @@
         .btn-clear { background: #442d30; color: #f85149; border: 1px solid #6e2121; flex-grow: 1; }
         .btn-small-clear { padding: 4px 8px; background: #30363d; color: #8b949e; border: 1px solid #444c56; font-size: 10px; }
 
-        #status { margin-top: 8px; font-size: 0.8em; font-family: monospace; color: #8b949e; display: flex; justify-content: space-between; align-items: center; }
-        .visit-counter { opacity: 0.5; font-size: 10px; }
+        #status { margin-top: 8px; font-size: 0.8em; font-family: monospace; color: #8b949e; min-height: 20px; }
         mark { background-color: rgba(187, 128, 9, 0.8); color: #fff; border-radius: 2px; }
 
         @media (max-width: 1000px) {
@@ -84,7 +83,7 @@
         }
     </style>
 </head>
-<body onload="initCounter()">
+<body>
 
     <div class="lang-panel">
         <button class="btn-lang active" onclick="setLanguage('ru')" id="btn-ru"><img src="https://flagpedia.net/data/flags/w580/ru.webp" alt="RU"></button>
@@ -103,10 +102,7 @@
             <div class="controls">
                 <button class="btn-merge" id="btnMerge" onclick="processFiles()">Объединить и обработать</button>
             </div>
-            <div id="status">
-                <div>> <span id="statusText">Готов</span></div>
-                <div class="visit-counter" id="visitCount">...</div>
-            </div>
+            <div id="status">> <span id="statusText">Готов</span></div>
         </div>
 
         <div class="column">
@@ -142,7 +138,6 @@
     <script>
         let currentLang = 'ru';
         let finalUniqueLines = [];
-        let visitCountValue = 0;
 
         const translations = {
             ru: {
@@ -151,7 +146,7 @@
                 statusReady: "Готов", statusLoading: "Загрузка...", statusSuccess: "Уникальных: ",
                 btnCopy: "Копировать", btnDownload: "Скачать TXT", btnClear: "Очистить всё",
                 copied: "Скопировано!", searchPlaceholder: "Поиск в тексте...",
-                thType: "Тип", thAddress: "Адрес", thPort: "Порт", visits: "Просмотры: "
+                thType: "Тип", thAddress: "Адрес", thPort: "Порт"
             },
             en: {
                 mainTitle: "V-Merge", labelUrls: "File Links", urlsPlaceholder: "Paste links...",
@@ -159,26 +154,9 @@
                 statusReady: "Ready", statusLoading: "Loading...", statusSuccess: "Unique: ",
                 btnCopy: "Copy", btnDownload: "Download TXT", btnClear: "Clear All",
                 copied: "Copied!", searchPlaceholder: "Search...",
-                thType: "Type", thAddress: "Address", thPort: "Port", visits: "Visits: "
+                thType: "Type", thAddress: "Address", thPort: "Port"
             }
         };
-
-        async function initCounter() {
-            try {
-                const res = await fetch(`https://countapi.xyz`);
-                const data = await res.json();
-                visitCountValue = data.value;
-            } catch (e) {
-                visitCountValue = localStorage.getItem('vmerge_local_hits') || 0;
-                visitCountValue++;
-                localStorage.setItem('vmerge_local_hits', visitCountValue);
-            }
-            updateCounterDisplay();
-        }
-
-        function updateCounterDisplay() {
-            document.getElementById('visitCount').innerText = translations[currentLang].visits + visitCountValue;
-        }
 
         function setLanguage(lang) {
             currentLang = lang;
@@ -205,10 +183,8 @@
 
             const statusSpan = document.getElementById('statusText');
             statusSpan.innerText = finalUniqueLines.length > 0 ? t.statusSuccess + finalUniqueLines.length : t.statusReady;
-            updateCounterDisplay();
         }
 
-        // --- Остальная логика обработки (updateButtons, processFiles, renderTable, scrollToLine, copyToClipboard, downloadTxt, clearAll, highlightText) ---
         function updateButtons() {
             const hasData = document.getElementById('resultDisplay').innerText.trim().length > 0;
             document.getElementById('btnCopy').disabled = !hasData;
@@ -217,10 +193,13 @@
         }
 
         async function processFiles() {
-            const urls = document.getElementById('urls').value.split('\n').filter(u => u.trim());
+            const urlsValue = document.getElementById('urls').value;
+            const urls = urlsValue.split('\n').map(u => u.trim()).filter(u => u);
             if (!urls.length) return;
+
             document.getElementById('statusText').innerText = translations[currentLang].statusLoading;
             let combined = [];
+
             for (let url of urls) {
                 try {
                     const res = await fetch(url.trim());
@@ -231,8 +210,9 @@
                         if (clean.includes('#')) clean = clean.split('#').trim();
                         if (clean) combined.push(clean);
                     });
-                } catch (e) {}
+                } catch (e) { console.error(e); }
             }
+
             finalUniqueLines = [...new Set(combined)];
             document.getElementById('resultDisplay').innerText = finalUniqueLines.join('\n');
             document.getElementById('statusText').innerText = translations[currentLang].statusSuccess + finalUniqueLines.length;
@@ -248,9 +228,9 @@
                 try {
                     if (line.includes('://')) {
                         const p = line.split('://');
-                        type = p.toLowerCase();
-                        const h = p.split('@').pop().split(/[/?#]/).split(':');
-                        addr = h; port = h || "-";
+                        type = p[0].toLowerCase();
+                        const h = p[1].split('@').pop().split(/[/?#]/)[0].split(':');
+                        addr = h[0]; port = h[1] || "-";
                     }
                 } catch(e) {}
                 tbody.insertAdjacentHTML('beforeend', `<tr onclick="scrollToLine(${index})">
@@ -300,6 +280,7 @@
             if (!s) { d.innerText = finalUniqueLines.join('\n'); return; }
             d.innerHTML = finalUniqueLines.join('\n').replace(new RegExp(`(${s})`, 'gi'), '<mark>$1</mark>');
         }
+        
         function scrollToNext() {
             const m = document.querySelector('mark');
             if (m) m.scrollIntoView({ behavior: 'smooth', block: 'center' });
