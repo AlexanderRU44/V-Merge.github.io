@@ -19,6 +19,5 @@
 
 *   **Frontend:** HTML5, CSS3 (Modern UI, GitHub Dark Theme).
 *   **Logic:** Pure JavaScript (ES6+), Fetch API.
-*   **Storage:** LocalStorage (для локального счетчика посещений).
 
 *   ## Буду рад вашим Pull Request и предложениям! Если вы нашли баг или у вас есть идея по улучшению — создайте **Issue**.
