@@ -46,7 +46,7 @@
             color: #8b949e; z-index: 10; text-align: left; 
             padding: 12px 8px; border-bottom: 2px solid #30363d; font-size: 12px;
         }
-        td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #21262d; font-size: 12px; }
+        td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #21262d; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         
         tbody tr { cursor: pointer; transition: background 0.2s; }
         tbody tr:hover { background-color: #1f2937; }
@@ -230,8 +230,9 @@
                     text.split('\n').forEach(line => {
                         let clean = line.trim();
                         if (!clean || clean.startsWith('#')) return;
-                        if (clean.includes('#')) clean = clean.split('#')[0].trim();
-                        if (clean) combined.push(clean);
+                        
+                        // ПРАВКА: Убрано отрезание части после #, чтобы сохранить название конфигурации
+                        combined.push(clean);
                     });
                 } catch (e) { console.error("Fetch error:", e); }
             }
@@ -253,6 +254,7 @@
                     if (line.includes('://')) {
                         const protocolParts = line.split('://');
                         type = protocolParts[0].toLowerCase();
+                        // Извлекаем адрес, игнорируя всё после @ и до начала параметров/имени
                         const afterProtocol = protocolParts[1].split('@').pop().split(/[/?#]/)[0];
                         const hostPort = afterProtocol.split(':');
                         addr = hostPort[0];
@@ -309,8 +311,12 @@
             const s = document.getElementById('searchInput').value;
             const d = document.getElementById('resultDisplay');
             if (!s) { d.innerText = finalUniqueLines.join('\n'); return; }
-            const regex = new RegExp(`(${s})`, 'gi');
+            const regex = new RegExp(`(${escapeRegExp(s)})`, 'gi');
             d.innerHTML = finalUniqueLines.join('\n').replace(regex, '<mark>$1</mark>');
+        }
+
+        function escapeRegExp(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         }
 
         function scrollToNext() {
