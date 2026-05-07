@@ -73,7 +73,7 @@
         .btn-clear { background: #442d30; color: #f85149; border: 1px solid #6e2121; flex-grow: 1; }
         .btn-small-clear { padding: 4px 8px; background: #30363d; color: #8b949e; border: 1px solid #444c56; font-size: 10px; }
 
-        #status { margin-top: 8px; font-size: 0.8em; font-family: monospace; color: #8b949e; min-height: 20px; }
+        #status { margin-top: 8px; font-size: 0.8em; font-family: monospace; color: #8b949e; }
         mark { background-color: rgba(187, 128, 9, 0.8); color: #fff; border-radius: 2px; }
 
         @media (max-width: 1000px) {
@@ -141,19 +141,35 @@
 
         const translations = {
             ru: {
-                mainTitle: "V-Merge", labelUrls: "Ссылки на файлы", urlsPlaceholder: "Вставьте ссылки...",
-                btnMerge: "Объединить и обработать", btnSmallClear: "✕ Очистить",
-                statusReady: "Готов", statusLoading: "Загрузка...", statusSuccess: "Уникальных: ",
-                btnCopy: "Копировать", btnDownload: "Скачать TXT", btnClear: "Очистить всё",
-                copied: "Скопировано!", searchPlaceholder: "Поиск в тексте...",
+                mainTitle: "V-Merge",
+                labelUrls: "Ссылки на файлы",
+                urlsPlaceholder: "Вставьте ссылки (каждая с новой строки)...",
+                btnMerge: "Объединить и обработать",
+                btnSmallClear: "✕ Очистить",
+                statusReady: "Готов",
+                statusLoading: "Загрузка...",
+                statusSuccess: "Уникальных: ",
+                btnCopy: "Копировать",
+                btnDownload: "Скачать TXT",
+                btnClear: "Очистить всё",
+                copied: "Скопировано!",
+                searchPlaceholder: "Поиск в тексте...",
                 thType: "Тип", thAddress: "Адрес", thPort: "Порт"
             },
             en: {
-                mainTitle: "V-Merge", labelUrls: "File Links", urlsPlaceholder: "Paste links...",
-                btnMerge: "Merge & Process", btnSmallClear: "✕ Clear",
-                statusReady: "Ready", statusLoading: "Loading...", statusSuccess: "Unique: ",
-                btnCopy: "Copy", btnDownload: "Download TXT", btnClear: "Clear All",
-                copied: "Copied!", searchPlaceholder: "Search...",
+                mainTitle: "V-Merge",
+                labelUrls: "File Links",
+                urlsPlaceholder: "Paste links (one per line)...",
+                btnMerge: "Merge & Process",
+                btnSmallClear: "✕ Clear",
+                statusReady: "Ready",
+                statusLoading: "Loading...",
+                statusSuccess: "Unique items: ",
+                btnCopy: "Copy",
+                btnDownload: "Download TXT",
+                btnClear: "Clear All",
+                copied: "Copied!",
+                searchPlaceholder: "Search in text...",
                 thType: "Type", thAddress: "Address", thPort: "Port"
             }
         };
@@ -161,6 +177,7 @@
         function setLanguage(lang) {
             currentLang = lang;
             const t = translations[lang];
+            
             document.querySelectorAll('.btn-lang').forEach(b => b.classList.remove('active'));
             document.getElementById(`btn-${lang}`).classList.add('active');
             
@@ -169,20 +186,26 @@
             document.getElementById('urls').placeholder = t.urlsPlaceholder;
             document.getElementById('btnMerge').innerText = t.btnMerge;
             document.getElementById('btnSmallClear').innerText = t.btnSmallClear;
-            document.getElementById('btnDownload').innerText = t.btnDownload;
-            document.getElementById('btnClear').innerText = t.btnClear;
-            document.getElementById('searchInput').placeholder = t.searchPlaceholder;
-            document.getElementById('thType').innerText = t.thType;
-            document.getElementById('thAddress').innerText = t.thAddress;
-            document.getElementById('thPort').innerText = t.thPort;
             
             const copyBtn = document.getElementById('btnCopy');
             if (copyBtn.innerText !== translations['ru'].copied && copyBtn.innerText !== translations['en'].copied) {
                 copyBtn.innerText = t.btnCopy;
             }
-
+            
+            document.getElementById('btnDownload').innerText = t.btnDownload;
+            document.getElementById('btnClear').innerText = t.btnClear;
+            document.getElementById('searchInput').placeholder = t.searchPlaceholder;
+            
+            document.getElementById('thType').innerText = t.thType;
+            document.getElementById('thAddress').innerText = t.thAddress;
+            document.getElementById('thPort').innerText = t.thPort;
+            
             const statusSpan = document.getElementById('statusText');
-            statusSpan.innerText = finalUniqueLines.length > 0 ? t.statusSuccess + finalUniqueLines.length : t.statusReady;
+            if (finalUniqueLines.length > 0) {
+                statusSpan.innerText = t.statusSuccess + finalUniqueLines.length;
+            } else {
+                statusSpan.innerText = t.statusReady;
+            }
         }
 
         function updateButtons() {
@@ -202,20 +225,21 @@
 
             for (let url of urls) {
                 try {
-                    const res = await fetch(url.trim());
+                    const res = await fetch(url);
                     const text = await res.text();
                     text.split('\n').forEach(line => {
                         let clean = line.trim();
                         if (!clean || clean.startsWith('#')) return;
-                        if (clean.includes('#')) clean = clean.split('#').trim();
+                        if (clean.includes('#')) clean = clean.split('#')[0].trim();
                         if (clean) combined.push(clean);
                     });
-                } catch (e) { console.error(e); }
+                } catch (e) { console.error("Fetch error:", e); }
             }
 
             finalUniqueLines = [...new Set(combined)];
             document.getElementById('resultDisplay').innerText = finalUniqueLines.join('\n');
             document.getElementById('statusText').innerText = translations[currentLang].statusSuccess + finalUniqueLines.length;
+            
             renderTable(finalUniqueLines);
             updateButtons();
         }
@@ -227,16 +251,19 @@
                 let type = "other", addr = "-", port = "-";
                 try {
                     if (line.includes('://')) {
-                        const p = line.split('://');
-                        type = p[0].toLowerCase();
-                        const h = p[1].split('@').pop().split(/[/?#]/)[0].split(':');
-                        addr = h[0]; port = h[1] || "-";
+                        const protocolParts = line.split('://');
+                        type = protocolParts[0].toLowerCase();
+                        const afterProtocol = protocolParts[1].split('@').pop().split(/[/?#]/)[0];
+                        const hostPort = afterProtocol.split(':');
+                        addr = hostPort[0];
+                        port = hostPort[1] || "-";
                     }
                 } catch(e) {}
+                
                 tbody.insertAdjacentHTML('beforeend', `<tr onclick="scrollToLine(${index})">
                     <td>${index + 1}</td>
                     <td><span class="Label type-${type}">${type}</span></td>
-                    <td><span class="address-text">${addr}</span></td>
+                    <td><span class="address-text" title="${addr}">${addr}</span></td>
                     <td>${port}</td>
                 </tr>`);
             });
@@ -244,24 +271,28 @@
 
         function scrollToLine(index) {
             const display = document.getElementById('resultDisplay');
-            display.innerHTML = finalUniqueLines.map((l, i) => i === index ? `<span id="target-line" class="line-highlight">${l}</span>` : l).join('\n');
+            display.innerHTML = finalUniqueLines.map((l, i) => 
+                i === index ? `<span id="target-line" class="line-highlight">${l}</span>` : l
+            ).join('\n');
             const target = document.getElementById('target-line');
             if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
         function copyToClipboard() {
             const btn = document.getElementById('btnCopy');
+            const original = translations[currentLang].btnCopy;
             navigator.clipboard.writeText(document.getElementById('resultDisplay').innerText).then(() => {
                 btn.innerText = translations[currentLang].copied;
-                setTimeout(() => btn.innerText = translations[currentLang].btnCopy, 2000);
+                setTimeout(() => btn.innerText = original, 2000);
             });
         }
 
         function downloadTxt() {
             const content = document.getElementById('resultDisplay').innerText.trim();
             if (!content) return;
+            const blob = new Blob([content], {type: 'text/plain'});
             const a = document.createElement('a');
-            a.href = URL.createObjectURL(new Blob([content], {type: 'text/plain'}));
+            a.href = URL.createObjectURL(blob);
             a.download = 'configs.txt';
             a.click();
         }
@@ -278,12 +309,14 @@
             const s = document.getElementById('searchInput').value;
             const d = document.getElementById('resultDisplay');
             if (!s) { d.innerText = finalUniqueLines.join('\n'); return; }
-            d.innerHTML = finalUniqueLines.join('\n').replace(new RegExp(`(${s})`, 'gi'), '<mark>$1</mark>');
+            const regex = new RegExp(`(${s})`, 'gi');
+            d.innerHTML = finalUniqueLines.join('\n').replace(regex, '<mark>$1</mark>');
         }
-        
+
         function scrollToNext() {
-            const m = document.querySelector('mark');
-            if (m) m.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            const marks = document.querySelectorAll('mark');
+            if (!marks.length) return;
+            marks[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
     </script>
 </body>
