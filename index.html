@@ -32,11 +32,49 @@
         .col-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
         .col-header h3 { margin: 0; font-size: 16px; }
 
-        textarea, #resultDisplay, .table-wrapper { 
+        .editor-container {
+            display: flex;
+            flex-grow: 1;
+            background-color: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            overflow: hidden;
+            font-family: monospace;
+            font-size: 13px;
+        }
+
+        .line-numbers {
+            width: 35px;
+            padding: 10px 5px;
+            text-align: right;
+            background: #161b22;
+            color: #484f58;
+            border-right: 1px solid #30363d;
+            user-select: none;
+            overflow: hidden;
+            line-height: 1.5;
+        }
+
+        textarea { 
+            flex-grow: 1; border: none; padding: 10px;
+            background: transparent; color: #d1d5da; 
+            resize: none; outline: none; line-height: 1.5;
+            overflow-y: auto; overflow-x: auto; white-space: pre;
+        }
+
+        #resultDisplay, .table-wrapper { 
             flex-grow: 1; width: 100%; padding: 10px; border: 1px solid #30363d; 
             border-radius: 6px; font-family: monospace; font-size: 13px; 
             background-color: #0d1117; color: #d1d5da; box-sizing: border-box; 
-            overflow-y: auto; word-break: break-all; resize: none; 
+            overflow-y: auto; word-break: break-all;
+        }
+
+        #resultDisplay { counter-reset: line; white-space: pre-wrap; }
+        .line-item { display: block; min-height: 1.2em; position: relative; padding-left: 45px; line-height: 1.5; }
+        .line-item::before {
+            counter-increment: line; content: counter(line);
+            position: absolute; left: 0; width: 35px; text-align: right;
+            color: #484f58; border-right: 1px solid #30363d; padding-right: 8px;
         }
 
         .table-wrapper { padding: 0; } 
@@ -57,10 +95,11 @@
         .type-trojan { color: #ff7b72; border-color: #ff7b72; background: rgba(255,123,114,0.1); }
         .type-ss { color: #d29922; border-color: #d29922; background: rgba(210,153,34,0.1); }
 
-        .line-highlight { background-color: rgba(247, 129, 102, 0.3); display: block; width: 100%; }
+        .line-highlight { background-color: rgba(247, 129, 102, 0.3); border-radius: 2px; }
 
         .search-box { display: flex; gap: 5px; margin-bottom: 10px; flex-shrink: 0; }
         .search-box input { flex-grow: 1; padding: 8px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: white; font-size: 13px; }
+        .btn-next { padding: 0 12px; background: #21262d; border: 1px solid #30363d; color: #c9d1d9; border-radius: 6px; cursor: pointer; }
         
         .controls { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; flex-shrink: 0; }
         button { padding: 10px 12px; cursor: pointer; border: 1px solid rgba(240,246,252,0.1); border-radius: 6px; font-weight: 600; transition: 0.2s; font-size: 12px; }
@@ -86,7 +125,7 @@
 <body>
 
     <div class="lang-panel">
-        <button class="btn-lang active" onclick="setLanguage('ru')" id="btn-ru"><img src="https://flagpedia.net/data/flags/w580/ru.webp" alt="RU"></button>
+        <button class="btn-lang" onclick="setLanguage('ru')" id="btn-ru"><img src="https://flagpedia.net/data/flags/w580/ru.webp" alt="RU"></button>
         <button class="btn-lang" onclick="setLanguage('en')" id="btn-en"><img src="https://flagpedia.net/data/flags/w580/gb.webp" alt="EN"></button>
     </div>
 
@@ -96,9 +135,12 @@
         <div class="column">
             <div class="col-header">
                 <h3 id="labelUrls">Ссылки на файлы</h3>
-                <button id="btnSmallClear" class="btn-small-clear" onclick="document.getElementById('urls').value=''">✕ Очистить</button>
+                <button id="btnSmallClear" class="btn-small-clear" onclick="clearInput()">✕ Очистить</button>
             </div>
-            <textarea id="urls" placeholder="Вставьте ссылки..."></textarea>
+            <div class="editor-container">
+                <div id="lineNumbers" class="line-numbers">1</div>
+                <textarea id="urls" placeholder="Вставьте ссылки..." oninput="updateLineNumbers()" onscroll="syncScroll()"></textarea>
+            </div>
             <div class="controls">
                 <button class="btn-merge" id="btnMerge" onclick="processFiles()">Объединить и обработать</button>
             </div>
@@ -141,36 +183,40 @@
 
         const translations = {
             ru: {
-                mainTitle: "V-Merge",
+                mainTitle: "V-Merge", 
                 labelUrls: "Ссылки на файлы",
                 urlsPlaceholder: "Вставьте ссылки (каждая с новой строки)...",
-                btnMerge: "Объединить и обработать",
+                btnMerge: "Объединить и обработать", 
                 btnSmallClear: "✕ Очистить",
-                statusReady: "Готов",
-                statusLoading: "Загрузка...",
+                statusReady: "Готов", 
+                statusLoading: "Загрузка...", 
                 statusSuccess: "Уникальных: ",
-                btnCopy: "Копировать",
-                btnDownload: "Скачать TXT",
+                btnCopy: "Копировать", 
+                btnDownload: "Скачать TXT", 
                 btnClear: "Очистить всё",
-                copied: "Скопировано!",
+                copied: "Скопировано!", 
                 searchPlaceholder: "Поиск в тексте...",
-                thType: "Тип", thAddress: "Адрес", thPort: "Порт"
+                thType: "Тип", 
+                thAddress: "Адрес", 
+                thPort: "Порт"
             },
             en: {
-                mainTitle: "V-Merge",
+                mainTitle: "V-Merge", 
                 labelUrls: "File Links",
                 urlsPlaceholder: "Paste links (one per line)...",
-                btnMerge: "Merge & Process",
+                btnMerge: "Merge & Process", 
                 btnSmallClear: "✕ Clear",
-                statusReady: "Ready",
-                statusLoading: "Loading...",
+                statusReady: "Ready", 
+                statusLoading: "Loading...", 
                 statusSuccess: "Unique items: ",
-                btnCopy: "Copy",
-                btnDownload: "Download TXT",
+                btnCopy: "Copy", 
+                btnDownload: "Download TXT", 
                 btnClear: "Clear All",
-                copied: "Copied!",
+                copied: "Copied!", 
                 searchPlaceholder: "Search in text...",
-                thType: "Type", thAddress: "Address", thPort: "Port"
+                thType: "Type", 
+                thAddress: "Address", 
+                thPort: "Port"
             }
         };
 
@@ -178,34 +224,55 @@
             currentLang = lang;
             const t = translations[lang];
             
+            // Кнопки языков
             document.querySelectorAll('.btn-lang').forEach(b => b.classList.remove('active'));
             document.getElementById(`btn-${lang}`).classList.add('active');
             
+            // Текстовые элементы
             document.getElementById('mainTitle').innerText = t.mainTitle;
             document.getElementById('labelUrls').innerText = t.labelUrls;
             document.getElementById('urls').placeholder = t.urlsPlaceholder;
             document.getElementById('btnMerge').innerText = t.btnMerge;
             document.getElementById('btnSmallClear').innerText = t.btnSmallClear;
-            
-            const copyBtn = document.getElementById('btnCopy');
-            if (copyBtn.innerText !== translations['ru'].copied && copyBtn.innerText !== translations['en'].copied) {
-                copyBtn.innerText = t.btnCopy;
-            }
-            
+            document.getElementById('btnCopy').innerText = t.btnCopy;
             document.getElementById('btnDownload').innerText = t.btnDownload;
             document.getElementById('btnClear').innerText = t.btnClear;
             document.getElementById('searchInput').placeholder = t.searchPlaceholder;
-            
             document.getElementById('thType').innerText = t.thType;
             document.getElementById('thAddress').innerText = t.thAddress;
             document.getElementById('thPort').innerText = t.thPort;
-            
-            const statusSpan = document.getElementById('statusText');
+
+            // Обновление статуса
+            const statusLabel = document.getElementById('statusText');
             if (finalUniqueLines.length > 0) {
-                statusSpan.innerText = t.statusSuccess + finalUniqueLines.length;
+                statusLabel.innerText = t.statusSuccess + finalUniqueLines.length;
             } else {
-                statusSpan.innerText = t.statusReady;
+                statusLabel.innerText = t.statusReady;
             }
+            
+            updateButtons();
+        }
+
+        function updateLineNumbers() {
+            const textarea = document.getElementById('urls');
+            const lineNumbers = document.getElementById('lineNumbers');
+            const lines = textarea.value.split('\n').length;
+            let numbers = '';
+            for (let i = 1; i <= lines; i++) {
+                numbers += i + '<br>';
+            }
+            lineNumbers.innerHTML = numbers;
+        }
+
+        function syncScroll() {
+            const textarea = document.getElementById('urls');
+            const lineNumbers = document.getElementById('lineNumbers');
+            lineNumbers.scrollTop = textarea.scrollTop;
+        }
+
+        function clearInput() {
+            document.getElementById('urls').value = '';
+            updateLineNumbers();
         }
 
         function updateButtons() {
@@ -213,6 +280,12 @@
             document.getElementById('btnCopy').disabled = !hasData;
             document.getElementById('btnDownload').disabled = !hasData;
             document.getElementById('btnClear').disabled = !hasData;
+        }
+
+        function updateDisplay(lines) {
+            const display = document.getElementById('resultDisplay');
+            if (!lines.length) { display.innerHTML = ''; return; }
+            display.innerHTML = lines.map(line => `<span class="line-item">${line}</span>`).join('');
         }
 
         async function processFiles() {
@@ -230,17 +303,14 @@
                     text.split('\n').forEach(line => {
                         let clean = line.trim();
                         if (!clean || clean.startsWith('#')) return;
-                        
-                        // ПРАВКА: Убрано отрезание части после #, чтобы сохранить название конфигурации
                         combined.push(clean);
                     });
                 } catch (e) { console.error("Fetch error:", e); }
             }
 
             finalUniqueLines = [...new Set(combined)];
-            document.getElementById('resultDisplay').innerText = finalUniqueLines.join('\n');
+            updateDisplay(finalUniqueLines);
             document.getElementById('statusText').innerText = translations[currentLang].statusSuccess + finalUniqueLines.length;
-            
             renderTable(finalUniqueLines);
             updateButtons();
         }
@@ -254,14 +324,11 @@
                     if (line.includes('://')) {
                         const protocolParts = line.split('://');
                         type = protocolParts[0].toLowerCase();
-                        // Извлекаем адрес, игнорируя всё после @ и до начала параметров/имени
                         const afterProtocol = protocolParts[1].split('@').pop().split(/[/?#]/)[0];
                         const hostPort = afterProtocol.split(':');
-                        addr = hostPort[0];
-                        port = hostPort[1] || "-";
+                        addr = hostPort[0]; port = hostPort[1] || "-";
                     }
                 } catch(e) {}
-                
                 tbody.insertAdjacentHTML('beforeend', `<tr onclick="scrollToLine(${index})">
                     <td>${index + 1}</td>
                     <td><span class="Label type-${type}">${type}</span></td>
@@ -272,25 +339,26 @@
         }
 
         function scrollToLine(index) {
-            const display = document.getElementById('resultDisplay');
-            display.innerHTML = finalUniqueLines.map((l, i) => 
-                i === index ? `<span id="target-line" class="line-highlight">${l}</span>` : l
-            ).join('\n');
-            const target = document.getElementById('target-line');
-            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            const items = document.querySelectorAll('.line-item');
+            items.forEach(item => item.classList.remove('line-highlight'));
+            if (items[index]) {
+                items[index].classList.add('line-highlight');
+                items[index].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
         }
 
         function copyToClipboard() {
             const btn = document.getElementById('btnCopy');
-            const original = translations[currentLang].btnCopy;
-            navigator.clipboard.writeText(document.getElementById('resultDisplay').innerText).then(() => {
+            const textToCopy = finalUniqueLines.join('\n');
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                const original = translations[currentLang].btnCopy;
                 btn.innerText = translations[currentLang].copied;
                 setTimeout(() => btn.innerText = original, 2000);
             });
         }
 
         function downloadTxt() {
-            const content = document.getElementById('resultDisplay').innerText.trim();
+            const content = finalUniqueLines.join('\n');
             if (!content) return;
             const blob = new Blob([content], {type: 'text/plain'});
             const a = document.createElement('a');
@@ -300,7 +368,8 @@
         }
 
         function clearAll() {
-            document.getElementById('resultDisplay').innerText = '';
+            clearInput();
+            document.getElementById('resultDisplay').innerHTML = '';
             document.querySelector('#configTable tbody').innerHTML = '';
             document.getElementById('statusText').innerText = translations[currentLang].statusReady;
             finalUniqueLines = [];
@@ -309,21 +378,24 @@
 
         function highlightText() {
             const s = document.getElementById('searchInput').value;
-            const d = document.getElementById('resultDisplay');
-            if (!s) { d.innerText = finalUniqueLines.join('\n'); return; }
+            if (!s) { updateDisplay(finalUniqueLines); return; }
             const regex = new RegExp(`(${escapeRegExp(s)})`, 'gi');
-            d.innerHTML = finalUniqueLines.join('\n').replace(regex, '<mark>$1</mark>');
+            const items = document.querySelectorAll('.line-item');
+            items.forEach((item, idx) => {
+                item.innerHTML = finalUniqueLines[idx].replace(regex, '<mark>$1</mark>');
+            });
         }
 
-        function escapeRegExp(string) {
-            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        }
-
+        function escapeRegExp(string) { return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+        
         function scrollToNext() {
             const marks = document.querySelectorAll('mark');
-            if (!marks.length) return;
-            marks[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            if (marks.length) marks[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
+
+        // Инициализация интерфейса
+        setLanguage('ru');
+        updateLineNumbers();
     </script>
 </body>
 </html>
