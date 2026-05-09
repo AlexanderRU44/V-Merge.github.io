@@ -224,11 +224,9 @@
             currentLang = lang;
             const t = translations[lang];
             
-            // Кнопки языков
             document.querySelectorAll('.btn-lang').forEach(b => b.classList.remove('active'));
             document.getElementById(`btn-${lang}`).classList.add('active');
             
-            // Текстовые элементы
             document.getElementById('mainTitle').innerText = t.mainTitle;
             document.getElementById('labelUrls').innerText = t.labelUrls;
             document.getElementById('urls').placeholder = t.urlsPlaceholder;
@@ -242,7 +240,6 @@
             document.getElementById('thAddress').innerText = t.thAddress;
             document.getElementById('thPort').innerText = t.thPort;
 
-            // Обновление статуса
             const statusLabel = document.getElementById('statusText');
             if (finalUniqueLines.length > 0) {
                 statusLabel.innerText = t.statusSuccess + finalUniqueLines.length;
@@ -368,7 +365,7 @@
         }
 
         function clearAll() {
-            clearInput();
+            // Убрана команда clearInput(), чтобы не очищать первую колонку
             document.getElementById('resultDisplay').innerHTML = '';
             document.querySelector('#configTable tbody').innerHTML = '';
             document.getElementById('statusText').innerText = translations[currentLang].statusReady;
@@ -393,7 +390,6 @@
             if (marks.length) marks[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
-        // Инициализация интерфейса
         setLanguage('ru');
         updateLineNumbers();
     </script>
