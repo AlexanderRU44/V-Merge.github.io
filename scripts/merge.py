@@ -1,23 +1,42 @@
 #!/usr/bin/env python3
 """
 V-Merge auto-builder.
-Объединяет конфиги из sources.txt, удаляет дубликаты
-по (type, address, port), пишет TSV: num \t type \t address \t port
+
+Делает всё:
+  1. Скачивает источники из sources.txt
+  2. Объединяет, декодирует base64-подписки
+  3. Удаляет дубликаты по (type, host, port)
+  4. Для новых хостов досыпает страну в scripts/geo_cache.json (ip-api.com)
+  5. Пишет output/merged.txt (TSV: num \t type \t address \t port)
+  6. Пишет output/merged.base64.txt
+
+Сайт (index.html) читает merged.txt и geo_cache.json и показывает страны.
 """
 import base64
+import ipaddress
 import json
 import re
+import socket
 import sys
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SOURCES = ROOT / "scripts" / "sources.txt"
+GEO_CACHE = ROOT / "scripts" / "geo_cache.json"
 OUT_PLAIN = ROOT / "output" / "merged.txt"
 OUT_B64 = ROOT / "output" / "merged.base64.txt"
 
 UA = "Mozilla/5.0 (compatible; V-Merge-Bot/1.0)"
+
+# ---- Настройки авто-обновления кэша ----
+GEO_ENABLED = True      # False — полностью выключить геолокацию
+MAX_NEW = 200           # сколько новых хостов обрабатывать за прогон
+DELAY_BETWEEN = 1.5     # пауза между запросами (сек), лимит ip-api.com 45/мин
+# -----------------------------------------
 
 
 def fetch(url: str, timeout: int = 30) -> str:
@@ -76,6 +95,104 @@ def parse_link(link: str):
         return None, None, None
 
 
+# ---------- Геолокация ----------
+
+def load_geo() -> dict:
+    if not GEO_CACHE.exists():
+        return {}
+    try:
+        data = json.loads(GEO_CACHE.read_text(encoding="utf-8"))
+        return {str(k).strip().lower(): str(v).strip().upper()
+                for k, v in data.items()}
+    except Exception as e:
+        print(f"[!] Ошибка чтения geo_cache.json: {e}", file=sys.stderr)
+        return {}
+
+
+def save_geo(data: dict) -> None:
+    GEO_CACHE.parent.mkdir(parents=True, exist_ok=True)
+    GEO_CACHE.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+
+
+def resolve_ip(host: str) -> str | None:
+    """Если это уже IP — вернёт его. Если домен — резолвит."""
+    try:
+        ipaddress.ip_address(host)
+        return host
+    except ValueError:
+        try:
+            return socket.gethostbyname(host)
+        except Exception:
+            return None
+
+
+def lookup_country_ip(ip: str) -> str:
+    """Спрашивает ip-api.com. Возвращает код страны или 'XX'."""
+    url = f"http://ip-api.com/json/{ip}?fields=status,countryCode"
+    req = urllib.request.Request(url, headers={"User-Agent": UA})
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            data = json.loads(r.read().decode())
+            if data.get("status") == "success":
+                return (data.get("countryCode") or "XX").upper()
+    except urllib.error.HTTPError as e:
+        if e.code == 429:
+            print("[!] 429 Too Many Requests — пауза 60 сек")
+            time.sleep(60)
+    except Exception as e:
+        print(f"  [!] ip-api: {e}")
+    return "XX"
+
+
+def update_geo_cache(hosts: list[str], geo: dict) -> dict:
+    """Досыпает в geo страны для новых хостов (с лимитом)."""
+    if not GEO_ENABLED:
+        return geo
+
+    missing: list[str] = []
+    seen: set[str] = set()
+    for h in hosts:
+        hl = h.strip().lower()
+        if not hl or hl == "-" or hl in geo or hl in seen:
+            continue
+        seen.add(hl)
+        missing.append(hl)
+
+    print(f"[=] Новых хостов для геолокации: {len(missing)}")
+    if not missing:
+        return geo
+
+    to_process = missing[:MAX_NEW]
+    print(f"[=] Обрабатываю {len(to_process)} (лимит {MAX_NEW})")
+
+    added = 0
+    for i, host in enumerate(to_process, 1):
+        ip = resolve_ip(host)
+        if not ip:
+            geo[host] = "XX"
+            print(f"  [{i}/{len(to_process)}] {host} — не резолвится (XX)")
+            continue
+
+        cc = lookup_country_ip(ip)
+        geo[host] = cc
+        if cc != "XX":
+            added += 1
+        print(f"  [{i}/{len(to_process)}] {host} → {ip} → {cc}")
+        time.sleep(DELAY_BETWEEN)
+
+    remaining = len(missing) - len(to_process)
+    if remaining > 0:
+        print(f"[i] Осталось на следующий прогон: {remaining}")
+
+    print(f"[=] Добавлено новых стран: {added}")
+    return geo
+
+
+# ---------- Основной сценарий ----------
+
 def main() -> int:
     if not SOURCES.exists():
         print("[!] Нет scripts/sources.txt", file=sys.stderr)
@@ -86,6 +203,7 @@ def main() -> int:
         if l.strip() and not l.lstrip().startswith("#")
     ]
 
+    # 1. Скачиваем и объединяем
     all_links: list[str] = []
     for url in urls:
         try:
@@ -101,15 +219,12 @@ def main() -> int:
 
     print(f"[=] Всего строк после чтения: {len(all_links)}")
 
-    # ---- Дедупликация по (type, host, port) ----
+    # 2. Дедупликация по (type, host, port)
     seen = set()
     unique_links = []
     for link in all_links:
         t, h, p = parse_link(link)
-        if t and h:
-            key = (t, h, p)
-        else:
-            key = ("__raw__", link, "")
+        key = (t, h, p) if (t and h) else ("__raw__", link, "")
         if key in seen:
             continue
         seen.add(key)
@@ -118,7 +233,21 @@ def main() -> int:
     all_links = unique_links
     print(f"[=] После дедупликации (type+host+port): {len(all_links)}")
 
-    # ---- Пишем TSV ----
+    # 3. Собираем список хостов (для геолокации)
+    hosts: list[str] = []
+    for link in all_links:
+        _, h, _ = parse_link(link)
+        if h:
+            hosts.append(h)
+
+    # 4. Обновляем geo_cache.json
+    geo = load_geo()
+    print(f"[=] Записей в кэше до обновления: {len(geo)}")
+    geo = update_geo_cache(hosts, geo)
+    save_geo(geo)
+    print(f"[=] Записей в кэше после обновления: {len(geo)}")
+
+    # 5. Пишем merged.txt
     rows = []
     for i, link in enumerate(all_links, 1):
         t, h, p = parse_link(link)
