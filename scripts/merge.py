@@ -7,7 +7,7 @@ V-Merge auto-builder.
   3. Иначе: скачивает, объединяет, дедуплицирует
   4. Досыпает страны в scripts/geo_cache.json (включая перезапрос "XX")
   5. Жёстко переписывает имя каждой ссылки: "🇩🇪 DE #N"
-  6. Пишет output/merged.txt и output/merged.base64.txt
+  6. Пишет output/merged.txt и output/merged.base64.txt с шапкой метаданных для клиентов
 """
 import base64
 import ipaddress
@@ -171,8 +171,6 @@ def check_sources_changed(urls: list, force: bool = False) -> tuple:
         except Exception as e:
             print(f"[!] {url}: {e}", file=sys.stderr)
             contents[url] = ""
-            # если ошибка сети — не считаем это изменением
-            # (иначе один битый источник будет триггерить сборку каждые 15 минут)
             if url not in new_state:
                 new_state[url] = None
 
@@ -359,7 +357,6 @@ def main() -> int:
 
     if not changed:
         print("[✓] Источники не изменились. Пересборка не требуется.")
-        # но если output/merged.txt отсутствует — всё равно собираем
         if not OUT_PLAIN.exists():
             print("[i] output/merged.txt отсутствует — собираю принудительно")
         else:
@@ -414,13 +411,22 @@ def main() -> int:
         tag = f"{flag(cc)} {cc} #{counter[cc]}"
         renamed.append(rename_link(link, tag))
 
-    # 6. Запись
-    text = "\n".join(renamed)
+    # 6. Запись с шапкой метаданных для Happ и аналогичных клиентов
+    metadata_header = (
+        "#profile-title: Atlanta (Белые Списки)\n"
+        "#announce: Переходите в канал, чтобы следить за актуальными обновлениями ⬆️\n"
+        "#support-url: https://t.me/your_channel_link\n"
+        "#profile-update-interval: 1\n"
+        "#subscription-userinfo: upload=0; download=10737418240; total=107374182400; expire=0\n"
+    )
+
+    text = metadata_header + "\n".join(renamed)
     if renamed:
         text += "\n"
 
     OUT_PLAIN.parent.mkdir(parents=True, exist_ok=True)
     OUT_PLAIN.write_text(text, encoding="utf-8")
+    
     OUT_B64.write_text(
         base64.b64encode(text.encode("utf-8")).decode(), encoding="utf-8"
     )
