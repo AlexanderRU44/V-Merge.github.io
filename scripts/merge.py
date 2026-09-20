@@ -7,7 +7,7 @@ V-Merge auto-builder.
   3. Иначе: скачивает, объединяет, дедуплицирует
   4. Досыпает страны в scripts/geo_cache.json (включая перезапрос "XX")
   5. Жёстко переписывает имя каждой ссылки: "🇩🇪 DE #N"
-  6. Пишет output/merged.txt и output/merged.base64.txt с шапкой метаданных для клиентов
+  6. Пишет output/merged.txt и output/merged.base64.txt с обновленной шапкой
 """
 import base64
 import ipaddress
@@ -142,10 +142,6 @@ def save_state(state: dict) -> None:
 
 
 def check_sources_changed(urls: list, force: bool = False) -> tuple:
-    """
-    Возвращает (изменилось: bool, новый_state: dict, содержимое: dict).
-    Скачивает каждый URL один раз, кэширует содержимое, чтобы не качать дважды.
-    """
     if force:
         print("[i] --force: пропускаю проверку источников")
         return True, load_state(), {}
@@ -180,7 +176,6 @@ def check_sources_changed(urls: list, force: bool = False) -> tuple:
 # ---------- Парсинг ссылок ----------
 
 def parse_link(link: str):
-    """Возвращает (type, host, port) или (None, None, None)."""
     try:
         if link.startswith("vmess://"):
             b64 = link[len("vmess://"):]
@@ -213,7 +208,6 @@ def parse_link(link: str):
 
 
 def rename_link(link: str, tag: str) -> str:
-    """Полностью заменяет имя. Старое — стирается."""
     if not RENAME_ENABLED:
         return link
 
@@ -411,13 +405,13 @@ def main() -> int:
         tag = f"{flag(cc)} {cc} #{counter[cc]}"
         renamed.append(rename_link(link, tag))
 
-    # 6. Запись с шапкой метаданных для Happ и аналогичных клиентов
+    # 6. Запись с шапкой метаданных под V-Merge 🚀
+    current_time = datetime.now().strftime("%d.%m.%Y %H:%M")
     metadata_header = (
-        "#profile-title: Atlanta (Белые Списки)\n"
-        "#announce: Переходите в канал, чтобы следить за актуальными обновлениями ⬆️\n"
-        "#support-url: https://t.me/your_channel_link\n"
+        "#profile-title: V-Merge 🚀\n"
+        f"#announce: Обновлено: {current_time} | Автообновление - 1 ч.\n"
+        "#support-url: https://alexanderru44.github.io/V-Merge.github.io/\n"
         "#profile-update-interval: 1\n"
-        "#subscription-userinfo: upload=0; download=10737418240; total=107374182400; expire=0\n"
     )
 
     text = metadata_header + "\n".join(renamed)
