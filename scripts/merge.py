@@ -6,6 +6,7 @@ V-Merge auto-builder.
   2. Декодирует base64-подписки
   3. Удаляет дубликаты по (type, host, port)
   4. Досыпает страны в scripts/geo_cache.json (ip-api.com)
+     — включая перезапрос записей со значением "XX"
   5. Жёстко перезаписывает имя каждой ссылки: "🇩🇪 DE #N"
   6. Пишет output/merged.txt и output/merged.base64.txt
 """
@@ -29,10 +30,12 @@ OUT_B64 = ROOT / "output" / "merged.base64.txt"
 
 UA = "Mozilla/5.0 (compatible; V-Merge-Bot/1.0)"
 
-GEO_ENABLED = True
-MAX_NEW = 200
-DELAY_BETWEEN = 1.5
-RENAME_ENABLED = True
+# ---- Настройки ----
+GEO_ENABLED = True       # False — выключить геолокацию
+MAX_NEW = 200            # сколько хостов обрабатывать за прогон (вкл. XX)
+DELAY_BETWEEN = 1.5      # пауза между запросами (ip-api.com: 45/мин)
+RENAME_ENABLED = True    # переименовывать ссылки в "🇩🇪 DE #N"
+# -------------------
 
 FLAGS = {
     "RU": "🇷🇺", "US": "🇺🇸", "DE": "🇩🇪", "NL": "🇳🇱", "FR": "🇫🇷",
@@ -78,6 +81,7 @@ def decode_subscription(text: str) -> str:
 
 
 def parse_link(link: str):
+    """Возвращает (type, host, port) или (None, None, None)."""
     try:
         if link.startswith("vmess://"):
             b64 = link[len("vmess://"):]
@@ -129,7 +133,7 @@ def rename_link(link: str, tag: str) -> str:
         except Exception:
             return link
 
-    # Остальные — режем всё после "#" и ставим новый тег
+    # vless:// trojan:// hysteria2:// ss:// ... — режем всё после "#"
     base = link.split("#", 1)[0]
     return f"{base}#{urllib.parse.quote(tag)}"
 
@@ -184,19 +188,28 @@ def lookup_country_ip(ip: str) -> str:
     return "XX"
 
 
-def update_geo_cache(hosts, geo):
+def update_geo_cache(hosts: list, geo: dict) -> dict:
+    """
+    Досыпает и перепроверяет страны.
+    - Новые хосты (нет в geo)         → запрос к ip-api
+    - Записи со значением "XX"        → перезапрос
+    - Записи с реальной страной       → пропуск
+    """
     if not GEO_ENABLED:
         return geo
 
     missing, seen = [], set()
     for h in hosts:
         hl = h.strip().lower()
-        if not hl or hl == "-" or hl in geo or hl in seen:
+        if not hl or hl == "-" or hl in seen:
+            continue
+        # пропускаем только те, где уже есть реальная страна
+        if hl in geo and geo[hl] != "XX":
             continue
         seen.add(hl)
         missing.append(hl)
 
-    print(f"[=] Новых хостов для геолокации: {len(missing)}")
+    print(f"[=] Хостов к обработке (новые + XX): {len(missing)}")
     if not missing:
         return geo
 
@@ -204,23 +217,29 @@ def update_geo_cache(hosts, geo):
     print(f"[=] Обрабатываю {len(to_process)} (лимит {MAX_NEW})")
 
     added = 0
+    improved = 0
     for i, host in enumerate(to_process, 1):
+        was = geo.get(host, "")
         ip = resolve_ip(host)
         if not ip:
             geo[host] = "XX"
             print(f"  [{i}/{len(to_process)}] {host} — не резолвится (XX)")
             continue
+
         cc = lookup_country_ip(ip)
         geo[host] = cc
         if cc != "XX":
             added += 1
+            if was == "XX":
+                improved += 1
         print(f"  [{i}/{len(to_process)}] {host} → {ip} → {cc}")
         time.sleep(DELAY_BETWEEN)
 
     remaining = len(missing) - len(to_process)
     if remaining > 0:
         print(f"[i] Осталось на следующий прогон: {remaining}")
-    print(f"[=] Добавлено новых стран: {added}")
+
+    print(f"[=] Определено стран: {added} (из них исправлено XX→страна: {improved})")
     return geo
 
 
@@ -250,7 +269,7 @@ def main() -> int:
 
     print(f"[=] Всего строк: {len(all_links)}")
 
-    # 2. Дедупликация
+    # 2. Дедупликация по (type, host, port)
     seen = set()
     unique_links = []
     for link in all_links:
@@ -263,15 +282,17 @@ def main() -> int:
     all_links = unique_links
     print(f"[=] После дедупликации: {len(all_links)}")
 
-    # 3. Геолокация
+    # 3. Хосты для геолокации
     hosts = [h for _, h, _ in (parse_link(l) for l in all_links) if h]
+
+    # 4. Обновляем geo_cache.json
     geo = load_geo()
     print(f"[=] Записей в кэше до: {len(geo)}")
     geo = update_geo_cache(hosts, geo)
     save_geo(geo)
     print(f"[=] Записей в кэше после: {len(geo)}")
 
-    # 4. Переименование — жёсткая замена на "🇩🇪 DE #N"
+    # 5. Переименование — жёсткая замена на "🇩🇪 DE #N"
     renamed = []
     counter = {}
     for link in all_links:
@@ -281,7 +302,7 @@ def main() -> int:
         tag = f"{flag(cc)} {cc} #{counter[cc]}"
         renamed.append(rename_link(link, tag))
 
-    # 5. Пишем файлы
+    # 6. Пишем файлы
     text = "\n".join(renamed)
     if renamed:
         text += "\n"
