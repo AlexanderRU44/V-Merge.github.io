@@ -4,13 +4,13 @@ V-Merge auto-builder.
 
 Делает всё:
   1. Скачивает источники из sources.txt
-  2. Объединяет, декодирует base64-подписки
+  2. Декодирует base64-подписки
   3. Удаляет дубликаты по (type, host, port)
   4. Для новых хостов досыпает страну в scripts/geo_cache.json (ip-api.com)
-  5. Пишет output/merged.txt (TSV: num \t type \t address \t port)
-  6. Пишет output/merged.base64.txt
+  5. Пишет output/merged.txt        — оригинальные ссылки (для клиентов и программы добавления)
+  6. Пишет output/merged.base64.txt — то же в base64 (готовая подписка)
 
-Сайт (index.html) читает merged.txt и geo_cache.json и показывает страны.
+index.html на сайте сам парсит ссылки и показывает таблицу со странами из geo_cache.json.
 """
 import base64
 import ipaddress
@@ -33,9 +33,9 @@ OUT_B64 = ROOT / "output" / "merged.base64.txt"
 UA = "Mozilla/5.0 (compatible; V-Merge-Bot/1.0)"
 
 # ---- Настройки авто-обновления кэша ----
-GEO_ENABLED = True      # False — полностью выключить геолокацию
+GEO_ENABLED = True      # False — выключить геолокацию
 MAX_NEW = 200           # сколько новых хостов обрабатывать за прогон
-DELAY_BETWEEN = 1.5     # пауза между запросами (сек), лимит ip-api.com 45/мин
+DELAY_BETWEEN = 1.5     # пауза между запросами (ip-api.com: 45/мин)
 # -----------------------------------------
 
 
@@ -46,6 +46,7 @@ def fetch(url: str, timeout: int = 30) -> str:
 
 
 def decode_subscription(text: str) -> str:
+    """Если текст — base64-подписка, декодирует. Иначе возвращает как есть."""
     text = text.strip()
     if not text:
         return ""
@@ -102,8 +103,10 @@ def load_geo() -> dict:
         return {}
     try:
         data = json.loads(GEO_CACHE.read_text(encoding="utf-8"))
-        return {str(k).strip().lower(): str(v).strip().upper()
-                for k, v in data.items()}
+        return {
+            str(k).strip().lower(): str(v).strip().upper()
+            for k, v in data.items()
+        }
     except Exception as e:
         print(f"[!] Ошибка чтения geo_cache.json: {e}", file=sys.stderr)
         return {}
@@ -118,7 +121,7 @@ def save_geo(data: dict) -> None:
 
 
 def resolve_ip(host: str) -> str | None:
-    """Если это уже IP — вернёт его. Если домен — резолвит."""
+    """Если это IP — вернёт его. Если домен — резолвит."""
     try:
         ipaddress.ip_address(host)
         return host
@@ -148,7 +151,7 @@ def lookup_country_ip(ip: str) -> str:
 
 
 def update_geo_cache(hosts: list[str], geo: dict) -> dict:
-    """Досыпает в geo страны для новых хостов (с лимитом)."""
+    """Досыпает страны для новых хостов (с лимитом на прогон)."""
     if not GEO_ENABLED:
         return geo
 
@@ -233,7 +236,7 @@ def main() -> int:
     all_links = unique_links
     print(f"[=] После дедупликации (type+host+port): {len(all_links)}")
 
-    # 3. Собираем список хостов (для геолокации)
+    # 3. Собираем хосты для геолокации
     hosts: list[str] = []
     for link in all_links:
         _, h, _ = parse_link(link)
@@ -247,14 +250,9 @@ def main() -> int:
     save_geo(geo)
     print(f"[=] Записей в кэше после обновления: {len(geo)}")
 
-    # 5. Пишем merged.txt
-    rows = []
-    for i, link in enumerate(all_links, 1):
-        t, h, p = parse_link(link)
-        rows.append(f"{i}\t{t or 'unknown'}\t{h or '-'}\t{p or '-'}")
-
-    text = "\n".join(rows)
-    if rows:
+    # 5. Пишем оригинальные ссылки в merged.txt
+    text = "\n".join(all_links)
+    if all_links:
         text += "\n"
 
     OUT_PLAIN.parent.mkdir(parents=True, exist_ok=True)
@@ -262,7 +260,7 @@ def main() -> int:
     OUT_B64.write_text(
         base64.b64encode(text.encode("utf-8")).decode(), encoding="utf-8"
     )
-    print(f"[✓] {OUT_PLAIN} ({len(rows)} шт.)")
+    print(f"[✓] {OUT_PLAIN} ({len(all_links)} шт.)")
     print(f"[✓] {OUT_B64}")
     return 0
 
