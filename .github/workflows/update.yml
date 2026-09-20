@@ -21,9 +21,11 @@ jobs:
   update:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
@@ -34,10 +36,16 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add output/merged.txt output/merged.base64.txt scripts/geo_cache.json scripts/sources_state.json
+
+          # ВАЖНО: не забываем про sources_state.json и geo_cache.json
+          git add output/merged.txt \
+                  output/merged.base64.txt \
+                  scripts/geo_cache.json \
+                  scripts/sources_state.json
+
           if git diff --cached --quiet; then
-            echo "Нет изменений"
+            echo "Нет изменений — коммит не нужен"
           else
-            git commit -m "auto: update configs + geo cache [skip ci]"
+            git commit -m "auto: update configs + geo cache + state [skip ci]"
             git push
           fi
