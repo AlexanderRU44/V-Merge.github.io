@@ -2,15 +2,12 @@
 """
 V-Merge auto-builder.
 
-Делает всё:
   1. Скачивает источники из sources.txt
   2. Декодирует base64-подписки
   3. Удаляет дубликаты по (type, host, port)
-  4. Для новых хостов досыпает страну в scripts/geo_cache.json (ip-api.com)
-  5. Пишет output/merged.txt        — оригинальные ссылки (для клиентов и программы добавления)
-  6. Пишет output/merged.base64.txt — то же в base64 (готовая подписка)
-
-index.html на сайте сам парсит ссылки и показывает таблицу со странами из geo_cache.json.
+  4. Досыпает страны в scripts/geo_cache.json (ip-api.com)
+  5. Жёстко перезаписывает имя каждой ссылки: "🇩🇪 DE #N"
+  6. Пишет output/merged.txt и output/merged.base64.txt
 """
 import base64
 import ipaddress
@@ -32,11 +29,29 @@ OUT_B64 = ROOT / "output" / "merged.base64.txt"
 
 UA = "Mozilla/5.0 (compatible; V-Merge-Bot/1.0)"
 
-# ---- Настройки авто-обновления кэша ----
-GEO_ENABLED = True      # False — выключить геолокацию
-MAX_NEW = 200           # сколько новых хостов обрабатывать за прогон
-DELAY_BETWEEN = 1.5     # пауза между запросами (ip-api.com: 45/мин)
-# -----------------------------------------
+GEO_ENABLED = True
+MAX_NEW = 200
+DELAY_BETWEEN = 1.5
+RENAME_ENABLED = True
+
+FLAGS = {
+    "RU": "🇷🇺", "US": "🇺🇸", "DE": "🇩🇪", "NL": "🇳🇱", "FR": "🇫🇷",
+    "GB": "🇬🇧", "FI": "🇫🇮", "SE": "🇸🇪", "TR": "🇹🇷", "JP": "🇯🇵",
+    "KR": "🇰🇷", "SG": "🇸🇬", "CA": "🇨🇦", "PL": "🇵🇱", "UA": "🇺🇦",
+    "KZ": "🇰🇿", "CN": "🇨🇳", "HK": "🇭🇰", "IN": "🇮🇳", "BR": "🇧🇷",
+    "IR": "🇮🇷", "AE": "🇦🇪", "IT": "🇮🇹", "ES": "🇪🇸", "CH": "🇨🇭",
+    "AT": "🇦🇹", "CZ": "🇨🇿", "RO": "🇷🇴", "MD": "🇲🇩", "LV": "🇱🇻",
+    "LT": "🇱🇹", "EE": "🇪🇪", "AM": "🇦🇲", "GE": "🇬🇪", "AZ": "🇦🇿",
+    "IL": "🇮🇱", "AU": "🇦🇺", "NZ": "🇳🇿", "MX": "🇲🇽", "AR": "🇦🇷",
+    "BG": "🇧🇬", "RS": "🇷🇸", "HR": "🇭🇷", "SK": "🇸🇰", "SI": "🇸🇮",
+    "TH": "🇹🇭", "VN": "🇻🇳", "MY": "🇲🇾", "ID": "🇮🇩", "PH": "🇵🇭",
+    "NO": "🇳🇴", "DK": "🇩🇰", "BE": "🇧🇪", "IE": "🇮🇪", "PT": "🇵🇹",
+    "GR": "🇬🇷", "HU": "🇭🇺", "AL": "🇦🇱", "IM": "🇮🇲",
+}
+
+
+def flag(cc: str) -> str:
+    return FLAGS.get(cc, "🏴")
 
 
 def fetch(url: str, timeout: int = 30) -> str:
@@ -46,7 +61,6 @@ def fetch(url: str, timeout: int = 30) -> str:
 
 
 def decode_subscription(text: str) -> str:
-    """Если текст — base64-подписка, декодирует. Иначе возвращает как есть."""
     text = text.strip()
     if not text:
         return ""
@@ -64,7 +78,6 @@ def decode_subscription(text: str) -> str:
 
 
 def parse_link(link: str):
-    """Возвращает (type, host, port) или (None, None, None)."""
     try:
         if link.startswith("vmess://"):
             b64 = link[len("vmess://"):]
@@ -96,7 +109,30 @@ def parse_link(link: str):
         return None, None, None
 
 
-# ---------- Геолокация ----------
+def rename_link(link: str, tag: str) -> str:
+    """Полностью заменяет имя. Старое — стирается."""
+    if not RENAME_ENABLED:
+        return link
+
+    # vmess:// — меняем "ps" в base64-JSON
+    if link.startswith("vmess://"):
+        try:
+            b64 = link[len("vmess://"):]
+            b64 += "=" * (-len(b64) % 4)
+            raw = base64.b64decode(b64).decode("utf-8", errors="ignore")
+            data = json.loads(raw)
+            data["ps"] = tag
+            new_b64 = base64.b64encode(
+                json.dumps(data, ensure_ascii=False).encode("utf-8")
+            ).decode()
+            return "vmess://" + new_b64
+        except Exception:
+            return link
+
+    # Остальные — режем всё после "#" и ставим новый тег
+    base = link.split("#", 1)[0]
+    return f"{base}#{urllib.parse.quote(tag)}"
+
 
 def load_geo() -> dict:
     if not GEO_CACHE.exists():
@@ -120,8 +156,7 @@ def save_geo(data: dict) -> None:
     )
 
 
-def resolve_ip(host: str) -> str | None:
-    """Если это IP — вернёт его. Если домен — резолвит."""
+def resolve_ip(host: str):
     try:
         ipaddress.ip_address(host)
         return host
@@ -133,7 +168,6 @@ def resolve_ip(host: str) -> str | None:
 
 
 def lookup_country_ip(ip: str) -> str:
-    """Спрашивает ip-api.com. Возвращает код страны или 'XX'."""
     url = f"http://ip-api.com/json/{ip}?fields=status,countryCode"
     req = urllib.request.Request(url, headers={"User-Agent": UA})
     try:
@@ -150,13 +184,11 @@ def lookup_country_ip(ip: str) -> str:
     return "XX"
 
 
-def update_geo_cache(hosts: list[str], geo: dict) -> dict:
-    """Досыпает страны для новых хостов (с лимитом на прогон)."""
+def update_geo_cache(hosts, geo):
     if not GEO_ENABLED:
         return geo
 
-    missing: list[str] = []
-    seen: set[str] = set()
+    missing, seen = [], set()
     for h in hosts:
         hl = h.strip().lower()
         if not hl or hl == "-" or hl in geo or hl in seen:
@@ -178,7 +210,6 @@ def update_geo_cache(hosts: list[str], geo: dict) -> dict:
             geo[host] = "XX"
             print(f"  [{i}/{len(to_process)}] {host} — не резолвится (XX)")
             continue
-
         cc = lookup_country_ip(ip)
         geo[host] = cc
         if cc != "XX":
@@ -189,12 +220,9 @@ def update_geo_cache(hosts: list[str], geo: dict) -> dict:
     remaining = len(missing) - len(to_process)
     if remaining > 0:
         print(f"[i] Осталось на следующий прогон: {remaining}")
-
     print(f"[=] Добавлено новых стран: {added}")
     return geo
 
-
-# ---------- Основной сценарий ----------
 
 def main() -> int:
     if not SOURCES.exists():
@@ -206,8 +234,8 @@ def main() -> int:
         if l.strip() and not l.lstrip().startswith("#")
     ]
 
-    # 1. Скачиваем и объединяем
-    all_links: list[str] = []
+    # 1. Скачиваем
+    all_links = []
     for url in urls:
         try:
             print(f"[+] Загрузка: {url}")
@@ -220,9 +248,9 @@ def main() -> int:
         except Exception as e:
             print(f"[!] Ошибка {url}: {e}", file=sys.stderr)
 
-    print(f"[=] Всего строк после чтения: {len(all_links)}")
+    print(f"[=] Всего строк: {len(all_links)}")
 
-    # 2. Дедупликация по (type, host, port)
+    # 2. Дедупликация
     seen = set()
     unique_links = []
     for link in all_links:
@@ -232,27 +260,30 @@ def main() -> int:
             continue
         seen.add(key)
         unique_links.append(link)
-
     all_links = unique_links
-    print(f"[=] После дедупликации (type+host+port): {len(all_links)}")
+    print(f"[=] После дедупликации: {len(all_links)}")
 
-    # 3. Собираем хосты для геолокации
-    hosts: list[str] = []
-    for link in all_links:
-        _, h, _ = parse_link(link)
-        if h:
-            hosts.append(h)
-
-    # 4. Обновляем geo_cache.json
+    # 3. Геолокация
+    hosts = [h for _, h, _ in (parse_link(l) for l in all_links) if h]
     geo = load_geo()
-    print(f"[=] Записей в кэше до обновления: {len(geo)}")
+    print(f"[=] Записей в кэше до: {len(geo)}")
     geo = update_geo_cache(hosts, geo)
     save_geo(geo)
-    print(f"[=] Записей в кэше после обновления: {len(geo)}")
+    print(f"[=] Записей в кэше после: {len(geo)}")
 
-    # 5. Пишем оригинальные ссылки в merged.txt
-    text = "\n".join(all_links)
-    if all_links:
+    # 4. Переименование — жёсткая замена на "🇩🇪 DE #N"
+    renamed = []
+    counter = {}
+    for link in all_links:
+        _, h, _ = parse_link(link)
+        cc = geo.get(h.lower(), "XX") if h else "XX"
+        counter[cc] = counter.get(cc, 0) + 1
+        tag = f"{flag(cc)} {cc} #{counter[cc]}"
+        renamed.append(rename_link(link, tag))
+
+    # 5. Пишем файлы
+    text = "\n".join(renamed)
+    if renamed:
         text += "\n"
 
     OUT_PLAIN.parent.mkdir(parents=True, exist_ok=True)
@@ -260,7 +291,7 @@ def main() -> int:
     OUT_B64.write_text(
         base64.b64encode(text.encode("utf-8")).decode(), encoding="utf-8"
     )
-    print(f"[✓] {OUT_PLAIN} ({len(all_links)} шт.)")
+    print(f"[✓] {OUT_PLAIN} ({len(renamed)} шт.)")
     print(f"[✓] {OUT_B64}")
     return 0
 
