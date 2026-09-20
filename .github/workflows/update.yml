@@ -1,0 +1,42 @@
+name: Update merged configs
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"     # каждые 6 часов (UTC)
+  workflow_dispatch:           # ручной запуск
+  push:
+    branches: [main]
+    paths:
+      - "scripts/**"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-merged
+  cancel-in-progress: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run merge script
+        run: python scripts/merge.py
+
+      - name: Commit & push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add output/merged.txt output/merged.base64.txt scripts/geo_cache.json
+          if git diff --cached --quiet; then
+            echo "Нет изменений"
+          else
+            git commit -m "auto: update merged configs [skip ci]"
+            git push
+          fi
