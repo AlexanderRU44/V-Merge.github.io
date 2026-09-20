@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>V-Merge</title>
+    <title>V-Merge 🚀</title>
     <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/AlexanderRU44/TV.github.io/refs/heads/Icons/ICONS/android-chrome-192x192.png">
 
     <style>
@@ -11,52 +11,54 @@
         body {
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
             background-color: #0d1117; color: #c9d1d9;
-            display: flex; flex-direction: column; padding: 20px; box-sizing: border-box;
+            display: flex; flex-direction: column; padding: 15px; box-sizing: border-box;
             overflow: hidden;
         }
 
-        h2 { color: #f0f6fc; font-weight: 400; margin: 0 0 15px 0; text-align: center; flex-shrink: 0; }
+        h2 { color: #f0f6fc; font-weight: 500; margin: 0 0 12px 0; text-align: center; flex-shrink: 0; font-size: 1.4rem; }
 
         .toolbar {
-            display: flex; gap: 10px; align-items: center; justify-content: center;
-            margin-bottom: 15px; flex-shrink: 0; flex-wrap: wrap;
+            display: flex; gap: 8px; align-items: center; justify-content: center;
+            margin-bottom: 12px; flex-shrink: 0; flex-wrap: wrap;
         }
         .toolbar label { font-size: 13px; color: #8b949e; }
         .toolbar select, .toolbar input {
             padding: 8px 10px; background: #0d1117; border: 1px solid #30363d;
-            border-radius: 6px; color: #c9d1d9; font-size: 13px; min-width: 160px;
+            border-radius: 6px; color: #c9d1d9; font-size: 13px; min-width: 140px;
         }
         .toolbar button {
             padding: 8px 14px; cursor: pointer; border-radius: 6px;
             font-weight: 600; font-size: 12px; border: none;
+            transition: opacity 0.2s;
         }
+        .toolbar button:hover { opacity: 0.85; }
         .toolbar button:disabled { opacity: 0.4; cursor: not-allowed; }
         .btn-refresh { background: #238636; color: white; }
         .btn-copy { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; }
         .btn-download { background: #1f6feb; color: white; }
 
-        .container { display: flex; gap: 15px; flex-grow: 1; min-height: 0; }
+        .container { display: flex; gap: 12px; flex-grow: 1; min-height: 0; }
 
         .column {
             flex: 1; display: flex; flex-direction: column;
-            background: #161b22; padding: 15px; border-radius: 10px;
+            background: #161b22; padding: 12px; border-radius: 10px;
             border: 1px solid #30363d; min-width: 0;
         }
-        .col-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        .col-header h3 { margin: 0; font-size: 16px; }
+        .col-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .col-header h3 { margin: 0; font-size: 15px; color: #f0f6fc; }
 
         #resultDisplay, .table-wrapper {
             flex-grow: 1; width: 100%; padding: 10px; border: 1px solid #30363d;
-            border-radius: 6px; font-family: monospace; font-size: 13px;
+            border-radius: 6px; font-family: monospace; font-size: 12px;
             background-color: #0d1117; color: #d1d5da; box-sizing: border-box;
             overflow-y: auto; word-break: break-all;
         }
         #resultDisplay { counter-reset: line; white-space: pre-wrap; }
-        .line-item { display: block; min-height: 1.2em; position: relative; padding-left: 55px; line-height: 1.5; }
+        .line-item { display: block; min-height: 1.2em; position: relative; padding-left: 45px; line-height: 1.5; }
         .line-item::before {
             counter-increment: line; content: counter(line);
-            position: absolute; left: 0; width: 45px; text-align: right;
-            color: #484f58; border-right: 1px solid #30363d; padding-right: 8px;
+            position: absolute; left: 0; width: 35px; text-align: right;
+            color: #484f58; border-right: 1px solid #30363d; padding-right: 6px;
         }
         .line-highlight { background-color: rgba(247, 129, 102, 0.3); border-radius: 2px; }
 
@@ -65,12 +67,12 @@
         th {
             position: sticky; top: 0; background-color: #0d1117;
             color: #8b949e; z-index: 10; text-align: left;
-            padding: 12px 8px; border-bottom: 2px solid #30363d; font-size: 12px;
+            padding: 10px 8px; border-bottom: 2px solid #30363d; font-size: 12px;
             cursor: pointer; user-select: none;
         }
         th:hover { color: #c9d1d9; }
         th .arrow { font-size: 10px; opacity: 0.6; margin-left: 4px; }
-        td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #21262d; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        td { text-align: left; padding: 8px; border-bottom: 1px solid #21262d; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         tbody tr { cursor: pointer; transition: background 0.2s; }
         tbody tr:hover { background-color: #1f2937; }
 
@@ -82,38 +84,49 @@
         .type-hysteria2 { color: #f778ba; border-color: #f778ba; background: rgba(247,120,186,0.1); }
 
         .country-cell { display: flex; align-items: center; gap: 6px; }
-        .country-flag { font-size: 16px; line-height: 1; }
+        .country-flag { font-size: 15px; line-height: 1; }
         .country-code { color: #8b949e; font-size: 11px; }
 
-        #status { margin-top: 8px; font-size: 0.8em; font-family: monospace; color: #8b949e; }
+        #status { margin-top: 6px; font-size: 0.75em; font-family: monospace; color: #8b949e; }
 
-        @media (max-width: 1000px) {
-            body { overflow-y: auto !important; height: auto; }
+        /* Мобильная адаптация */
+        @media (max-width: 900px) {
+            html, body { overflow: auto !important; height: auto; }
+            body { padding: 10px; }
             .container { flex-direction: column; height: auto; }
-            .column { height: 500px; flex: none; margin-bottom: 15px; }
+            .column { height: 400px; flex: none; margin-bottom: 10px; }
+            .toolbar { flex-direction: column; align-items: stretch; gap: 6px; }
+            .toolbar select, .toolbar input, .toolbar button { width: 100%; min-width: 0; }
         }
     </style>
 </head>
 <body>
 
-    <h2>V-Merge</h2>
+    <h2>V-Merge 🚀</h2>
 
     <div class="toolbar">
-        <label for="countryFilter">Страна:</label>
-        <select id="countryFilter" onchange="applyFilters()">
-            <option value="">Все</option>
-        </select>
+        <div style="display:flex; gap:8px; width:100%;">
+            <div style="flex:1;">
+                <label for="countryFilter">Страна:</label>
+                <select id="countryFilter" onchange="applyFilters()" style="width:100%;">
+                    <option value="">Все</option>
+                </select>
+            </div>
+            <div style="flex:1;">
+                <label for="typeFilter">Тип:</label>
+                <select id="typeFilter" onchange="applyFilters()" style="width:100%;">
+                    <option value="">Все</option>
+                </select>
+            </div>
+        </div>
 
-        <label for="typeFilter">Тип:</label>
-        <select id="typeFilter" onchange="applyFilters()">
-            <option value="">Все</option>
-        </select>
+        <input type="text" id="searchInput" placeholder="Поиск по адресу или имени…" oninput="applyFilters()" style="width:100%;">
 
-        <input type="text" id="searchInput" placeholder="Поиск по адресу…" oninput="applyFilters()">
-
-        <button class="btn-refresh" id="btnRefresh" onclick="loadConfigs()">🔄 Обновить</button>
-        <button class="btn-copy" id="btnCopy" onclick="copyToClipboard()" disabled>Копировать</button>
-        <button class="btn-download" id="btnDownload" onclick="downloadTxt()" disabled>Скачать TXT</button>
+        <div style="display:flex; gap:6px; width:100%; margin-top:4px;">
+            <button class="btn-refresh" id="btnRefresh" onclick="loadConfigs()" style="flex:1;">🔄 Обновить</button>
+            <button class="btn-copy" id="btnCopy" onclick="copyToClipboard()" disabled style="flex:1;">Копировать</button>
+            <button class="btn-download" id="btnDownload" onclick="downloadTxt()" disabled style="flex:1;">Скачать TXT</button>
+        </div>
     </div>
 
     <div class="container">
@@ -134,11 +147,11 @@
                 <table id="configTable">
                     <thead>
                         <tr>
-                            <th data-key="num"     style="width:45px">#<span class="arrow" data-arrow="num"></span></th>
-                            <th data-key="type"    style="width:85px">Тип<span class="arrow" data-arrow="type"></span></th>
+                            <th data-key="num"     style="width:40px">#<span class="arrow" data-arrow="num"></span></th>
+                            <th data-key="type"    style="width:75px">Тип<span class="arrow" data-arrow="type"></span></th>
                             <th data-key="address">Адрес<span class="arrow" data-arrow="address"></span></th>
-                            <th data-key="port"    style="width:70px">Порт<span class="arrow" data-arrow="port"></span></th>
-                            <th data-key="country" style="width:90px">Страна<span class="arrow" data-arrow="country"></span></th>
+                            <th data-key="port"    style="width:60px">Порт<span class="arrow" data-arrow="port"></span></th>
+                            <th data-key="country" style="width:80px">Страна<span class="arrow" data-arrow="country"></span></th>
                         </tr>
                     </thead>
                     <tbody></tbody>
@@ -148,10 +161,8 @@
     </div>
 
     <script>
-        // ==== ПУТИ ====
         const MERGED_URL = "output/merged.txt";
         const GEO_URL    = "https://raw.githubusercontent.com/AlexanderRU44/V-Merge.github.io/refs/heads/main/scripts/geo_cache.json";
-        // ==============
 
         let allRows = [];
         let visibleRows = [];
@@ -159,7 +170,6 @@
         let sortDir = 1;
         let geoCache = {};
 
-        // --- Хелперы ---
         function escapeHtml(s) {
             return String(s).replace(/[&<>"']/g, c => ({
                 '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -175,7 +185,6 @@
             );
         }
 
-        // --- Загрузка geo_cache.json ---
         async function loadGeoCache() {
             try {
                 const res = await fetch(GEO_URL + "?t=" + Date.now(), { cache: "no-store" });
@@ -186,9 +195,7 @@
                     normalized[String(k).trim().toLowerCase()] = String(v).trim().toUpperCase();
                 }
                 geoCache = normalized;
-                console.log("[V-Merge] geo_cache загружен, записей:", Object.keys(geoCache).length);
             } catch (e) {
-                console.warn("[V-Merge] не удалось загрузить geo_cache.json:", e.message);
                 geoCache = {};
             }
         }
@@ -198,10 +205,9 @@
             return geoCache[String(host).trim().toLowerCase()] || "XX";
         }
 
-        // --- Извлечение хоста из vmess:// ---
         function hostFromVmess(link) {
             try {
-                let b64 = link.slice("vmess://".length);
+                let b64 = link.slice("vmess://".length).split('#')[0];
                 b64 += "=".repeat((4 - (b64.length % 4)) % 4);
                 const json = atob(b64);
                 const data = JSON.parse(json);
@@ -211,7 +217,6 @@
             }
         }
 
-        // --- Парсинг merged.txt (авто-определение формата) ---
         function parseMerged(text) {
             const rows = [];
             const lines = text.split(/\r?\n/);
@@ -219,39 +224,26 @@
                 const line = raw.replace(/\s+$/, "");
                 if (!line || line.startsWith("#")) continue;
 
-                // Формат 1: TSV
-                if (line.includes("\t")) {
-                    const parts = line.split("\t").map(s => s.trim());
-                    if (parts.length >= 4) {
-                        rows.push({
-                            num: parseInt(parts[0], 10) || rows.length + 1,
-                            type: parts[1].toLowerCase(),
-                            address: parts[2],
-                            port: parts[3]
-                        });
-                        continue;
-                    }
-                }
-
-                // Формат 2: обычная ссылка
                 if (line.includes("://")) {
                     const type = line.split("://", 1)[0].toLowerCase();
                     let address = "", port = "";
+                    
                     if (type === "vmess") {
                         address = hostFromVmess(line);
                         try {
-                            let b64 = line.slice("vmess://".length);
+                            let b64 = line.slice("vmess://".length).split('#')[0];
                             b64 += "=".repeat((4 - (b64.length % 4)) % 4);
                             const data = JSON.parse(atob(b64));
                             port = String(data.port || "");
                         } catch (e) {}
                     } else {
                         try {
-                            const u = new URL(line);
+                            const cleanLine = line.split('#')[0];
+                            const u = new URL(cleanLine);
                             address = u.hostname || "";
                             port = u.port || "";
                         } catch (e) {
-                            const rest = line.slice(line.indexOf("://") + 3);
+                            const rest = line.split("://")[1] || "";
                             const afterAt = rest.split("@").pop();
                             const hostPort = afterAt.split(/[/?#]/)[0];
                             const [h, p] = hostPort.split(":");
@@ -259,18 +251,19 @@
                             port = p || "";
                         }
                     }
+                    
                     rows.push({
                         num: rows.length + 1,
                         type,
                         address,
-                        port
+                        port,
+                        rawLink: line // Сохраняем исходную полную ссылку со всеми параметрами
                     });
                 }
             }
             return rows;
         }
 
-        // --- Отрисовка ---
         function renderList(rows) {
             const display = document.getElementById('resultDisplay');
             if (!rows.length) {
@@ -279,8 +272,7 @@
             }
             display.innerHTML = rows.map(r => {
                 const flag = countryToFlag(r.country);
-                const text = `${r.type}://${r.address}:${r.port}`;
-                return `<span class="line-item" data-num="${r.num}">${escapeHtml(text)} <span style="color:#8b949e;">${flag} ${r.country}</span></span>`;
+                return `<span class="line-item" data-num="${r.num}">${escapeHtml(r.rawLink)} <span style="color:#8b949e;">[${flag} ${r.country}]</span></span>`;
             }).join('');
         }
 
@@ -308,7 +300,6 @@
             }
         }
 
-        // --- Фильтры/сортировка ---
         function buildFilterOptions() {
             const countrySel = document.getElementById('countryFilter');
             const typeSel = document.getElementById('typeFilter');
@@ -330,7 +321,7 @@
             visibleRows = allRows.filter(r =>
                 (!cf || r.country === cf) &&
                 (!tf || r.type === tf) &&
-                (!q || r.address.toLowerCase().includes(q))
+                (!q || r.address.toLowerCase().includes(q) || r.rawLink.toLowerCase().includes(q))
             );
 
             applySort();
@@ -368,7 +359,6 @@
             });
         });
 
-        // --- Загрузка ---
         async function loadConfigs() {
             const btn = document.getElementById('btnRefresh');
             const status = document.getElementById('statusText');
@@ -401,7 +391,6 @@
                 const known = allRows.filter(r => r.country !== "XX").length;
                 status.innerText = `Загружено: ${allRows.length} (со страной: ${known}, XX: ${allRows.length - known})`;
             } catch (e) {
-                console.error("[V-Merge]", e);
                 allRows = [];
                 visibleRows = [];
                 renderList([]);
@@ -422,9 +411,7 @@
 
         function copyToClipboard() {
             const btn = document.getElementById('btnCopy');
-            const text = visibleRows
-                .map(r => `${r.type}://${r.address}:${r.port}`)
-                .join('\n');
+            const text = visibleRows.map(r => r.rawLink).join('\n');
             navigator.clipboard.writeText(text).then(() => {
                 const orig = btn.innerText;
                 btn.innerText = "Скопировано!";
@@ -434,9 +421,7 @@
 
         function downloadTxt() {
             if (!visibleRows.length) return;
-            const text = visibleRows
-                .map(r => `${r.type}://${r.address}:${r.port}`)
-                .join('\n');
+            const text = visibleRows.map(r => r.rawLink).join('\n');
             const blob = new Blob([text], { type: 'text/plain' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
