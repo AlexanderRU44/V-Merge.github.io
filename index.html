@@ -15,12 +15,8 @@
             overflow: hidden;
         }
 
-        .lang-panel { position: absolute; top: 20px; right: 20px; display: flex; gap: 10px; z-index: 100; }
-        .btn-lang { background: #21262d; border: 1px solid #30363d; padding: 6px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; }
-        .btn-lang img { width: 24px; height: auto; border-radius: 2px; }
-        .btn-lang.active { border-color: #58a6ff; background: #263951; }
-
         h2 { color: #f0f6fc; font-weight: 400; margin: 0 0 20px 0; text-align: center; flex-shrink: 0; }
+
         .container { display: flex; gap: 15px; max-width: 100%; flex-grow: 1; min-height: 0; }
 
         .column {
@@ -31,36 +27,6 @@
 
         .col-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
         .col-header h3 { margin: 0; font-size: 16px; }
-
-        .editor-container {
-            display: flex;
-            flex-grow: 1;
-            background-color: #0d1117;
-            border: 1px solid #30363d;
-            border-radius: 6px;
-            overflow: hidden;
-            font-family: monospace;
-            font-size: 13px;
-        }
-
-        .line-numbers {
-            width: 35px;
-            padding: 10px 5px;
-            text-align: right;
-            background: #161b22;
-            color: #484f58;
-            border-right: 1px solid #30363d;
-            user-select: none;
-            overflow: hidden;
-            line-height: 1.5;
-        }
-
-        textarea {
-            flex-grow: 1; border: none; padding: 10px;
-            background: transparent; color: #d1d5da;
-            resize: none; outline: none; line-height: 1.5;
-            overflow-y: auto; overflow-x: auto; white-space: pre;
-        }
 
         #resultDisplay, .table-wrapper {
             flex-grow: 1; width: 100%; padding: 10px; border: 1px solid #30363d;
@@ -76,6 +42,7 @@
             position: absolute; left: 0; width: 35px; text-align: right;
             color: #484f58; border-right: 1px solid #30363d; padding-right: 8px;
         }
+        .line-highlight { background-color: rgba(247, 129, 102, 0.3); border-radius: 2px; }
 
         .table-wrapper { padding: 0; }
         table { width: 100%; border-collapse: collapse; table-layout: fixed; }
@@ -85,7 +52,6 @@
             padding: 12px 8px; border-bottom: 2px solid #30363d; font-size: 12px;
         }
         td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #21262d; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
         tbody tr { cursor: pointer; transition: background 0.2s; }
         tbody tr:hover { background-color: #1f2937; }
 
@@ -95,82 +61,54 @@
         .type-trojan { color: #ff7b72; border-color: #ff7b72; background: rgba(255,123,114,0.1); }
         .type-ss { color: #d29922; border-color: #d29922; background: rgba(210,153,34,0.1); }
 
-        .line-highlight { background-color: rgba(247, 129, 102, 0.3); border-radius: 2px; }
-
-        .search-box { display: flex; gap: 5px; margin-bottom: 10px; flex-shrink: 0; }
-        .search-box input { flex-grow: 1; padding: 8px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: white; font-size: 13px; }
-        .btn-next { padding: 0 12px; background: #21262d; border: 1px solid #30363d; color: #c9d1d9; border-radius: 6px; cursor: pointer; }
-
         .controls { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; flex-shrink: 0; }
         button { padding: 10px 12px; cursor: pointer; border: 1px solid rgba(240,246,252,0.1); border-radius: 6px; font-weight: 600; transition: 0.2s; font-size: 12px; }
-
         button:disabled { opacity: 0.4; cursor: not-allowed !important; }
 
-        .btn-merge { background: #238636; color: white; border: none; flex-grow: 1; }
-        .btn-auto { background: #1f6feb; color: white; border: none; flex-grow: 1; }
+        .btn-refresh { background: #238636; color: white; border: none; flex-grow: 1; }
         .btn-copy { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; flex-grow: 1; }
         .btn-download { background: #1f6feb; color: white; border: none; flex-grow: 1; }
-        .btn-clear { background: #442d30; color: #f85149; border: 1px solid #6e2121; flex-grow: 1; }
-        .btn-small-clear { padding: 4px 8px; background: #30363d; color: #8b949e; border: 1px solid #444c56; font-size: 10px; }
 
         #status { margin-top: 8px; font-size: 0.8em; font-family: monospace; color: #8b949e; }
-        mark { background-color: rgba(187, 128, 9, 0.8); color: #fff; border-radius: 2px; }
 
         @media (max-width: 1000px) {
-            body { overflow-y: auto !important; height: auto; padding-top: 80px; }
+            body { overflow-y: auto !important; height: auto; }
             .container { flex-direction: column; height: auto; }
-            .column { height: 450px; flex: none; margin-bottom: 15px; }
+            .column { height: 500px; flex: none; margin-bottom: 15px; }
         }
     </style>
 </head>
 <body>
 
-    <div class="lang-panel">
-        <button class="btn-lang" onclick="setLanguage('ru')" id="btn-ru"><img src="https://flagpedia.net/data/flags/w580/ru.webp" alt="RU"></button>
-        <button class="btn-lang" onclick="setLanguage('en')" id="btn-en"><img src="https://flagpedia.net/data/flags/w580/gb.webp" alt="EN"></button>
-    </div>
-
-    <h2 id="mainTitle">V-Merge</h2>
+    <h2>V-Merge</h2>
 
     <div class="container">
         <div class="column">
             <div class="col-header">
-                <h3 id="labelUrls">Ссылки на файлы</h3>
-                <button id="btnSmallClear" class="btn-small-clear" onclick="clearInput()">✕ Очистить</button>
+                <h3>Конфиги</h3>
+                <span id="countBadge" style="font-size:12px;color:#8b949e;"></span>
             </div>
-            <div class="editor-container">
-                <div id="lineNumbers" class="line-numbers">1</div>
-                <textarea id="urls" placeholder="Вставьте ссылки..." oninput="updateLineNumbers()" onscroll="syncScroll()"></textarea>
-            </div>
+            <div id="resultDisplay"></div>
             <div class="controls">
-                <button class="btn-merge" id="btnMerge" onclick="processFiles()">Объединить и обработать</button>
-                <button class="btn-auto" id="btnAuto" onclick="loadAutoMerge()">📥 Загрузить автосборку</button>
-            </div>
-            <div id="status">> <span id="statusText">Готов</span></div>
-        </div>
-
-        <div class="column">
-            <div class="search-box">
-                <input type="text" id="searchInput" placeholder="Поиск в тексте..." oninput="highlightText()">
-                <button id="btnNext" class="btn-next" onclick="scrollToNext()">↓</button>
-            </div>
-            <div id="resultDisplay" contenteditable="true" spellcheck="false" oninput="updateButtons()"></div>
-            <div class="controls">
+                <button class="btn-refresh" id="btnRefresh" onclick="loadConfigs()">🔄 Обновить</button>
                 <button class="btn-copy" id="btnCopy" onclick="copyToClipboard()" disabled>Копировать</button>
                 <button class="btn-download" id="btnDownload" onclick="downloadTxt()" disabled>Скачать TXT</button>
-                <button class="btn-clear" id="btnClear" onclick="clearAll()" disabled>Очистить всё</button>
             </div>
+            <div id="status">> <span id="statusText">Загрузка…</span></div>
         </div>
 
         <div class="column">
+            <div class="col-header">
+                <h3>Параметры</h3>
+            </div>
             <div class="table-wrapper">
                 <table id="configTable">
                     <thead>
                         <tr>
                             <th style="width:35px">#</th>
-                            <th id="thType" style="width:85px">Тип</th>
-                            <th id="thAddress">Адрес</th>
-                            <th id="thPort" style="width:65px">Порт</th>
+                            <th style="width:85px">Тип</th>
+                            <th>Адрес</th>
+                            <th style="width:65px">Порт</th>
                         </tr>
                     </thead>
                     <tbody></tbody>
@@ -180,200 +118,32 @@
     </div>
 
     <script>
-        let currentLang = 'ru';
+        // ==== НАСТРОЙКА ====
+        // Относительный путь внутри того же репозитория
+        const AUTO_MERGE_URL = "output/merged.txt";
+        // ===================
+
         let finalUniqueLines = [];
 
-        // URL автосборки (файл создаётся GitHub Actions)
-        const AUTO_MERGE_URL = "output/merged.txt";
-
-        const translations = {
-            ru: {
-                mainTitle: "V-Merge",
-                labelUrls: "Ссылки на файлы",
-                urlsPlaceholder: "Вставьте ссылки (каждая с новой строки)...",
-                btnMerge: "Объединить и обработать",
-                btnAuto: "📥 Загрузить автосборку",
-                btnAutoLoading: "⏳ Загрузка автосборки…",
-                btnSmallClear: "✕ Очистить",
-                statusReady: "Готов",
-                statusLoading: "Загрузка...",
-                statusSuccess: "Уникальных: ",
-                statusAutoLoading: "Загрузка автосборки...",
-                statusAutoSuccess: "Автосборка загружена: ",
-                statusAutoEmpty: "Автосборка пуста",
-                statusAutoError: "Ошибка автосборки: ",
-                btnCopy: "Копировать",
-                btnDownload: "Скачать TXT",
-                btnClear: "Очистить всё",
-                copied: "Скопировано!",
-                searchPlaceholder: "Поиск в тексте...",
-                thType: "Тип",
-                thAddress: "Адрес",
-                thPort: "Порт"
-            },
-            en: {
-                mainTitle: "V-Merge",
-                labelUrls: "File Links",
-                urlsPlaceholder: "Paste links (one per line)...",
-                btnMerge: "Merge & Process",
-                btnAuto: "📥 Load Auto-Merge",
-                btnAutoLoading: "⏳ Loading auto-merge…",
-                btnSmallClear: "✕ Clear",
-                statusReady: "Ready",
-                statusLoading: "Loading...",
-                statusSuccess: "Unique items: ",
-                statusAutoLoading: "Loading auto-merge...",
-                statusAutoSuccess: "Auto-merge loaded: ",
-                statusAutoEmpty: "Auto-merge is empty",
-                statusAutoError: "Auto-merge error: ",
-                btnCopy: "Copy",
-                btnDownload: "Download TXT",
-                btnClear: "Clear All",
-                copied: "Copied!",
-                searchPlaceholder: "Search in text...",
-                thType: "Type",
-                thAddress: "Address",
-                thPort: "Port"
-            }
-        };
-
-        function setLanguage(lang) {
-            currentLang = lang;
-            const t = translations[lang];
-
-            document.querySelectorAll('.btn-lang').forEach(b => b.classList.remove('active'));
-            document.getElementById(`btn-${lang}`).classList.add('active');
-
-            document.getElementById('mainTitle').innerText = t.mainTitle;
-            document.getElementById('labelUrls').innerText = t.labelUrls;
-            document.getElementById('urls').placeholder = t.urlsPlaceholder;
-            document.getElementById('btnMerge').innerText = t.btnMerge;
-            document.getElementById('btnAuto').innerText = t.btnAuto;
-            document.getElementById('btnSmallClear').innerText = t.btnSmallClear;
-            document.getElementById('btnCopy').innerText = t.btnCopy;
-            document.getElementById('btnDownload').innerText = t.btnDownload;
-            document.getElementById('btnClear').innerText = t.btnClear;
-            document.getElementById('searchInput').placeholder = t.searchPlaceholder;
-            document.getElementById('thType').innerText = t.thType;
-            document.getElementById('thAddress').innerText = t.thAddress;
-            document.getElementById('thPort').innerText = t.thPort;
-
-            const statusLabel = document.getElementById('statusText');
-            if (finalUniqueLines.length > 0) {
-                statusLabel.innerText = t.statusSuccess + finalUniqueLines.length;
-            } else {
-                statusLabel.innerText = t.statusReady;
-            }
-
-            updateButtons();
-        }
-
-        function updateLineNumbers() {
-            const textarea = document.getElementById('urls');
-            const lineNumbers = document.getElementById('lineNumbers');
-            const lines = textarea.value.split('\n').length;
-            let numbers = '';
-            for (let i = 1; i <= lines; i++) {
-                numbers += i + '<br>';
-            }
-            lineNumbers.innerHTML = numbers;
-        }
-
-        function syncScroll() {
-            const textarea = document.getElementById('urls');
-            const lineNumbers = document.getElementById('lineNumbers');
-            lineNumbers.scrollTop = textarea.scrollTop;
-        }
-
-        function clearInput() {
-            document.getElementById('urls').value = '';
-            updateLineNumbers();
-        }
-
         function updateButtons() {
-            const hasData = document.getElementById('resultDisplay').innerText.trim().length > 0;
+            const hasData = finalUniqueLines.length > 0;
             document.getElementById('btnCopy').disabled = !hasData;
             document.getElementById('btnDownload').disabled = !hasData;
-            document.getElementById('btnClear').disabled = !hasData;
         }
 
         function updateDisplay(lines) {
             const display = document.getElementById('resultDisplay');
             if (!lines.length) { display.innerHTML = ''; return; }
-            display.innerHTML = lines.map(line => `<span class="line-item">${line}</span>`).join('');
+            display.innerHTML = lines
+                .map(line => `<span class="line-item">${escapeHtml(line)}</span>`)
+                .join('');
         }
 
-        async function processFiles() {
-            const urlsValue = document.getElementById('urls').value;
-            const urls = urlsValue.split('\n').map(u => u.trim()).filter(u => u);
-            if (!urls.length) return;
-
-            document.getElementById('statusText').innerText = translations[currentLang].statusLoading;
-            let combined = [];
-
-            for (let url of urls) {
-                try {
-                    const res = await fetch(url);
-                    const text = await res.text();
-                    text.split('\n').forEach(line => {
-                        let clean = line.trim();
-                        if (!clean || clean.startsWith('#')) return;
-                        combined.push(clean);
-                    });
-                } catch (e) { console.error("Fetch error:", e); }
-            }
-
-            finalUniqueLines = [...new Set(combined)];
-            updateDisplay(finalUniqueLines);
-            document.getElementById('statusText').innerText = translations[currentLang].statusSuccess + finalUniqueLines.length;
-            renderTable(finalUniqueLines);
-            updateButtons();
+        function escapeHtml(s) {
+            return s.replace(/[&<>"']/g, c => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[c]));
         }
-
-        // ==== НОВОЕ: загрузка готовой автосборки ====
-        async function loadAutoMerge() {
-            const btn = document.getElementById('btnAuto');
-            const t = translations[currentLang];
-
-            btn.disabled = true;
-            const originalLabel = btn.innerText;
-            btn.innerText = t.btnAutoLoading;
-            document.getElementById('statusText').innerText = t.statusAutoLoading;
-
-            try {
-                // cache-busting, чтобы не получить старую версию из CDN
-                const url = AUTO_MERGE_URL + "?t=" + Date.now();
-                const res = await fetch(url, { cache: "no-store" });
-                if (!res.ok) throw new Error("HTTP " + res.status);
-
-                const text = await res.text();
-                const lines = text
-                    .split(/\r?\n/)
-                    .map(l => l.trim())
-                    .filter(l => l && !l.startsWith('#'));
-
-                if (!lines.length) {
-                    document.getElementById('statusText').innerText = t.statusAutoEmpty;
-                    return;
-                }
-
-                // показываем то же самое, что выдал бы processFiles()
-                finalUniqueLines = [...new Set(lines)];
-                updateDisplay(finalUniqueLines);
-                renderTable(finalUniqueLines);
-                updateButtons();
-                document.getElementById('statusText').innerText =
-                    t.statusAutoSuccess + finalUniqueLines.length;
-            } catch (e) {
-                console.error("[V-Merge] auto-merge error:", e);
-                document.getElementById('statusText').innerText =
-                    t.statusAutoError + e.message;
-            } finally {
-                btn.disabled = false;
-                btn.innerText = originalLabel;
-            }
-        }
-        // ==== /НОВОЕ ====
 
         function renderTable(configs) {
             const tbody = document.querySelector('#configTable tbody');
@@ -388,7 +158,7 @@
                         const hostPort = afterProtocol.split(':');
                         addr = hostPort[0]; port = hostPort[1] || "-";
                     }
-                } catch(e) {}
+                } catch (e) {}
                 tbody.insertAdjacentHTML('beforeend', `<tr onclick="scrollToLine(${index})">
                     <td>${index + 1}</td>
                     <td><span class="Label type-${type}">${type}</span></td>
@@ -407,54 +177,66 @@
             }
         }
 
+        async function loadConfigs() {
+            const btn = document.getElementById('btnRefresh');
+            const status = document.getElementById('statusText');
+            const badge = document.getElementById('countBadge');
+
+            btn.disabled = true;
+            status.innerText = "Загрузка…";
+
+            try {
+                const url = AUTO_MERGE_URL + "?t=" + Date.now();
+                const res = await fetch(url, { cache: "no-store" });
+                if (!res.ok) throw new Error("HTTP " + res.status);
+
+                const text = await res.text();
+                const lines = text
+                    .split(/\r?\n/)
+                    .map(l => l.trim())
+                    .filter(l => l && !l.startsWith('#'));
+
+                finalUniqueLines = [...new Set(lines)];
+
+                updateDisplay(finalUniqueLines);
+                renderTable(finalUniqueLines);
+                updateButtons();
+
+                badge.innerText = finalUniqueLines.length + " шт.";
+                status.innerText = "Загружено: " + finalUniqueLines.length;
+            } catch (e) {
+                console.error("[V-Merge]", e);
+                finalUniqueLines = [];
+                updateDisplay([]);
+                renderTable([]);
+                updateButtons();
+                badge.innerText = "";
+                status.innerText = "Ошибка: " + e.message;
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
         function copyToClipboard() {
             const btn = document.getElementById('btnCopy');
-            const textToCopy = finalUniqueLines.join('\n');
-            navigator.clipboard.writeText(textToCopy).then(() => {
-                const original = translations[currentLang].btnCopy;
-                btn.innerText = translations[currentLang].copied;
+            navigator.clipboard.writeText(finalUniqueLines.join('\n')).then(() => {
+                const original = btn.innerText;
+                btn.innerText = "Скопировано!";
                 setTimeout(() => btn.innerText = original, 2000);
             });
         }
 
         function downloadTxt() {
-            const content = finalUniqueLines.join('\n');
-            if (!content) return;
-            const blob = new Blob([content], {type: 'text/plain'});
+            if (!finalUniqueLines.length) return;
+            const blob = new Blob([finalUniqueLines.join('\n')], { type: 'text/plain' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
             a.download = 'configs.txt';
             a.click();
         }
 
-        function clearAll() {
-            // Убрана команда clearInput(), чтобы не очищать первую колонку
-            document.getElementById('resultDisplay').innerHTML = '';
-            document.querySelector('#configTable tbody').innerHTML = '';
-            document.getElementById('statusText').innerText = translations[currentLang].statusReady;
-            finalUniqueLines = [];
-            updateButtons();
-        }
-
-        function highlightText() {
-            const s = document.getElementById('searchInput').value;
-            if (!s) { updateDisplay(finalUniqueLines); return; }
-            const regex = new RegExp(`(${escapeRegExp(s)})`, 'gi');
-            const items = document.querySelectorAll('.line-item');
-            items.forEach((item, idx) => {
-                item.innerHTML = finalUniqueLines[idx].replace(regex, '<mark>$1</mark>');
-            });
-        }
-
-        function escapeRegExp(string) { return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
-
-        function scrollToNext() {
-            const marks = document.querySelectorAll('mark');
-            if (marks.length) marks[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-
-        setLanguage('ru');
-        updateLineNumbers();
+        // Автозагрузка при открытии страницы
+        loadConfigs();
     </script>
 </body>
 </html>
