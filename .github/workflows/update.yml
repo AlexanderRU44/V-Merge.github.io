@@ -2,15 +2,17 @@ name: Update merged configs
 
 on:
   schedule:
-    - cron: "0 */6 * * *"     # каждые 6 часов (UTC)
-  workflow_dispatch:           # ручной запуск
+    # Каждые 6 часов (UTC)
+    - cron: "0 */6 * * *"
+  workflow_dispatch:        # Ручной запуск из UI
   push:
     branches: [main]
     paths:
-      - "scripts/**"
+      - "scripts/**"        # Перезапуск при правке merge.py/sources.txt/geo_cache.json
+      - ".github/workflows/update.yml"
 
 permissions:
-  contents: write
+  contents: write           # Нужно для git push обратно в репозиторий
 
 concurrency:
   group: update-merged
@@ -19,10 +21,13 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
@@ -33,10 +38,13 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Здесь обязательно указываем geo_cache.json — иначе патч с XX не сохранится
           git add output/merged.txt output/merged.base64.txt scripts/geo_cache.json
+
           if git diff --cached --quiet; then
-            echo "Нет изменений"
+            echo "Нет изменений — коммит не нужен"
           else
-            git commit -m "auto: update merged configs [skip ci]"
+            git commit -m "auto: update configs + geo cache [skip ci]"
             git push
           fi
