@@ -2,12 +2,11 @@
 """
 V-Merge auto-builder.
 
-  1. Скачивает источники из sources.txt
-  2. Декодирует base64-подписки
-  3. Удаляет дубликаты по (type, host, port)
-  4. Досыпает страны в scripts/geo_cache.json (ip-api.com)
-     — включая перезапрос записей со значением "XX"
-  5. Жёстко перезаписывает имя каждой ссылки: "🇩🇪 DE #N"
+  1. Проверяет, изменились ли источники (по дате обновления внутри файла)
+  2. Если ничего не изменилось — выходит за пару секунд
+  3. Иначе: скачивает, объединяет, дедуплицирует
+  4. Досыпает страны в scripts/geo_cache.json (включая перезапрос "XX")
+  5. Жёстко переписывает имя каждой ссылки: "🇩🇪 DE #N"
   6. Пишет output/merged.txt и output/merged.base64.txt
 """
 import base64
@@ -20,21 +19,24 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SOURCES = ROOT / "scripts" / "sources.txt"
 GEO_CACHE = ROOT / "scripts" / "geo_cache.json"
+STATE_FILE = ROOT / "scripts" / "sources_state.json"
 OUT_PLAIN = ROOT / "output" / "merged.txt"
 OUT_B64 = ROOT / "output" / "merged.base64.txt"
 
 UA = "Mozilla/5.0 (compatible; V-Merge-Bot/1.0)"
 
 # ---- Настройки ----
-GEO_ENABLED = True       # False — выключить геолокацию
-MAX_NEW = 200            # сколько хостов обрабатывать за прогон (вкл. XX)
-DELAY_BETWEEN = 1.5      # пауза между запросами (ip-api.com: 45/мин)
-RENAME_ENABLED = True    # переименовывать ссылки в "🇩🇪 DE #N"
+GEO_ENABLED = True        # False — выключить геолокацию
+MAX_NEW = 200             # сколько хостов обрабатывать за прогон (вкл. XX)
+DELAY_BETWEEN = 1.5       # пауза между запросами (ip-api.com: 45/мин)
+RENAME_ENABLED = True     # переименовывать ссылки в "🇩🇪 DE #N"
+FORCE_REBUILD = False     # True или --force — игнорировать кэш состояния
 # -------------------
 
 FLAGS = {
@@ -80,6 +82,105 @@ def decode_subscription(text: str) -> str:
     return text
 
 
+# ---------- Парсер даты обновления источника ----------
+
+RE_FI = re.compile(
+    r"обновлено:\s*(\d{1,2})/(\d{1,2})/(\d{4})\s+(\d{1,2}):(\d{2})\s*(AM|PM)?",
+    re.IGNORECASE,
+)
+RE_IGARECK = re.compile(
+    r"Date/Time:\s*(\d{4})-(\d{2})-(\d{2})\s*/\s*(\d{1,2}):(\d{2})",
+    re.IGNORECASE,
+)
+
+
+def parse_source_updated_at(text: str):
+    """Возвращает строку ISO 'YYYY-MM-DD HH:MM' или None."""
+    head = "\n".join(text.splitlines()[:15])
+
+    m = RE_FI.search(head)
+    if m:
+        mm, dd, yy, hh, mi, ampm = m.groups()
+        hh, mi = int(hh), int(mi)
+        if ampm:
+            ampm = ampm.upper()
+            if ampm == "PM" and hh != 12:
+                hh += 12
+            if ampm == "AM" and hh == 12:
+                hh = 0
+        try:
+            return f"{int(yy):04d}-{int(mm):02d}-{int(dd):02d} {hh:02d}:{mi:02d}"
+        except Exception:
+            return None
+
+    m = RE_IGARECK.search(head)
+    if m:
+        yy, mm, dd, hh, mi = m.groups()
+        try:
+            return f"{int(yy):04d}-{int(mm):02d}-{int(dd):02d} {int(hh):02d}:{int(mi):02d}"
+        except Exception:
+            return None
+
+    return None
+
+
+def load_state() -> dict:
+    if not STATE_FILE.exists():
+        return {}
+    try:
+        return json.loads(STATE_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def save_state(state: dict) -> None:
+    STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    STATE_FILE.write_text(
+        json.dumps(state, ensure_ascii=False, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+
+
+def check_sources_changed(urls: list, force: bool = False) -> tuple:
+    """
+    Возвращает (изменилось: bool, новый_state: dict, содержимое: dict).
+    Скачивает каждый URL один раз, кэширует содержимое, чтобы не качать дважды.
+    """
+    if force:
+        print("[i] --force: пропускаю проверку источников")
+        return True, load_state(), {}
+
+    old = load_state()
+    new_state = dict(old)
+    changed = False
+    contents = {}
+
+    for url in urls:
+        try:
+            raw = fetch(url)
+            contents[url] = raw
+            dt = parse_source_updated_at(raw)
+            prev = old.get(url)
+            if dt != prev:
+                changed = True
+                print(f"[~] {url}\n    было: {prev or '—'} → стало: {dt or 'не определено'}")
+            else:
+                print(f"[=] {url}\n    без изменений ({dt or '—'})")
+            if dt:
+                new_state[url] = dt
+        except Exception as e:
+            print(f"[!] {url}: {e}", file=sys.stderr)
+            contents[url] = ""
+            # если ошибка сети — не считаем это изменением
+            # (иначе один битый источник будет триггерить сборку каждые 15 минут)
+            if url not in new_state:
+                new_state[url] = None
+
+    return changed, new_state, contents
+
+
+# ---------- Парсинг ссылок ----------
+
 def parse_link(link: str):
     """Возвращает (type, host, port) или (None, None, None)."""
     try:
@@ -118,7 +219,6 @@ def rename_link(link: str, tag: str) -> str:
     if not RENAME_ENABLED:
         return link
 
-    # vmess:// — меняем "ps" в base64-JSON
     if link.startswith("vmess://"):
         try:
             b64 = link[len("vmess://"):]
@@ -133,10 +233,11 @@ def rename_link(link: str, tag: str) -> str:
         except Exception:
             return link
 
-    # vless:// trojan:// hysteria2:// ss:// ... — режем всё после "#"
     base = link.split("#", 1)[0]
     return f"{base}#{urllib.parse.quote(tag)}"
 
+
+# ---------- Геолокация ----------
 
 def load_geo() -> dict:
     if not GEO_CACHE.exists():
@@ -189,12 +290,6 @@ def lookup_country_ip(ip: str) -> str:
 
 
 def update_geo_cache(hosts: list, geo: dict) -> dict:
-    """
-    Досыпает и перепроверяет страны.
-    - Новые хосты (нет в geo)         → запрос к ip-api
-    - Записи со значением "XX"        → перезапрос
-    - Записи с реальной страной       → пропуск
-    """
     if not GEO_ENABLED:
         return geo
 
@@ -203,7 +298,6 @@ def update_geo_cache(hosts: list, geo: dict) -> dict:
         hl = h.strip().lower()
         if not hl or hl == "-" or hl in seen:
             continue
-        # пропускаем только те, где уже есть реальная страна
         if hl in geo and geo[hl] != "XX":
             continue
         seen.add(hl)
@@ -238,12 +332,15 @@ def update_geo_cache(hosts: list, geo: dict) -> dict:
     remaining = len(missing) - len(to_process)
     if remaining > 0:
         print(f"[i] Осталось на следующий прогон: {remaining}")
-
-    print(f"[=] Определено стран: {added} (из них исправлено XX→страна: {improved})")
+    print(f"[=] Определено стран: {added} (исправлено XX→страна: {improved})")
     return geo
 
 
+# ---------- Основной сценарий ----------
+
 def main() -> int:
+    force = FORCE_REBUILD or ("--force" in sys.argv)
+
     if not SOURCES.exists():
         print("[!] Нет scripts/sources.txt", file=sys.stderr)
         return 1
@@ -252,13 +349,30 @@ def main() -> int:
         l.strip() for l in SOURCES.read_text(encoding="utf-8").splitlines()
         if l.strip() and not l.lstrip().startswith("#")
     ]
+    if not urls:
+        print("[!] sources.txt пустой", file=sys.stderr)
+        return 0
 
-    # 1. Скачиваем
+    # 1. Проверяем, изменились ли источники
+    changed, new_state, cached = check_sources_changed(urls, force=force)
+    save_state(new_state)
+
+    if not changed:
+        print("[✓] Источники не изменились. Пересборка не требуется.")
+        # но если output/merged.txt отсутствует — всё равно собираем
+        if not OUT_PLAIN.exists():
+            print("[i] output/merged.txt отсутствует — собираю принудительно")
+        else:
+            return 0
+
+    # 2. Скачиваем / берём из кэша
     all_links = []
     for url in urls:
         try:
-            print(f"[+] Загрузка: {url}")
-            raw = fetch(url)
+            raw = cached.get(url)
+            if raw is None:
+                print(f"[+] Загрузка: {url}")
+                raw = fetch(url)
             decoded = decode_subscription(raw)
             for line in decoded.splitlines():
                 line = line.strip()
@@ -269,7 +383,7 @@ def main() -> int:
 
     print(f"[=] Всего строк: {len(all_links)}")
 
-    # 2. Дедупликация по (type, host, port)
+    # 3. Дедупликация
     seen = set()
     unique_links = []
     for link in all_links:
@@ -282,17 +396,15 @@ def main() -> int:
     all_links = unique_links
     print(f"[=] После дедупликации: {len(all_links)}")
 
-    # 3. Хосты для геолокации
+    # 4. Геолокация
     hosts = [h for _, h, _ in (parse_link(l) for l in all_links) if h]
-
-    # 4. Обновляем geo_cache.json
     geo = load_geo()
     print(f"[=] Записей в кэше до: {len(geo)}")
     geo = update_geo_cache(hosts, geo)
     save_geo(geo)
     print(f"[=] Записей в кэше после: {len(geo)}")
 
-    # 5. Переименование — жёсткая замена на "🇩🇪 DE #N"
+    # 5. Переименование
     renamed = []
     counter = {}
     for link in all_links:
@@ -302,7 +414,7 @@ def main() -> int:
         tag = f"{flag(cc)} {cc} #{counter[cc]}"
         renamed.append(rename_link(link, tag))
 
-    # 6. Пишем файлы
+    # 6. Запись
     text = "\n".join(renamed)
     if renamed:
         text += "\n"
