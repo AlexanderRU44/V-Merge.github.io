@@ -2,7 +2,9 @@ name: Update merged configs
 
 on:
   schedule:
-    - cron: "*/15 * * * *"      # каждые 15 минут
+    # Изменили минуты с '*/15' на '5,20,35,50', чтобы снизить нагрузку 
+    # на общую очередь GitHub и избежать задержек в несколько часов.
+    - cron: "5,20,35,50 * * * *"
   workflow_dispatch:
   push:
     branches: [main]
@@ -19,7 +21,9 @@ concurrency:
 
 jobs:
   update:
-    runs-on: ubuntu-latest
+    # Зафиксировали версию Ubuntu вместо 'ubuntu-latest', 
+    # чтобы избежать неожиданных сбоев при переходе на Ubuntu 26.
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
