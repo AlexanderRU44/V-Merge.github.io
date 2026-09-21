@@ -34,6 +34,9 @@ jobs:
 
       - name: Run merge script
         run: python scripts/merge.py
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
 
       - name: Commit & push
         run: |
@@ -51,3 +54,4 @@ jobs:
             git commit -m "auto: update configs + geo cache + state [skip ci]"
             git push
           fi
+          
