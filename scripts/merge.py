@@ -8,6 +8,7 @@ V-Merge auto-builder.
   4. Досыпает страны в scripts/geo_cache.json (включая перезапрос "XX")
   5. Жёстко переписывает имя каждой ссылки: "🇩🇪 DE #N"
   6. Пишет output/merged.txt и output/merged.base64.txt с обновленной шапкой
+  7. Отправляет уведомление в Telegram об успешном обновлении
 """
 import base64
 import ipaddress
@@ -328,6 +329,31 @@ def update_geo_cache(hosts: list, geo: dict) -> dict:
     return geo
 
 
+# ---------- Telegram Уведомления ----------
+
+def send_telegram_notification(message: str) -> None:
+    token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID")
+
+    if not token or not chat_id:
+        print("[i] Telegram секреты не найдены, пропускаем отправку уведомления.")
+        return
+
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    data = urllib.parse.urlencode({
+        "chat_id": chat_id,
+        "text": message,
+        "parse_mode": "Markdown"
+    }).encode("utf-8")
+
+    try:
+        req = urllib.request.Request(url, data=data, method="POST")
+        with urllib.request.urlopen(req, timeout=10):
+            print("[✓] Уведомление в Telegram успешно отправлено!")
+    except Exception as e:
+        print(f"[!] Ошибка при отправке уведомления в Telegram: {e}", file=sys.stderr)
+
+
 # ---------- Основной сценарий ----------
 
 def main() -> int:
@@ -426,6 +452,14 @@ def main() -> int:
     )
     print(f"[✓] {OUT_PLAIN} ({len(renamed)} шт.)")
     print(f"[✓] {OUT_B64}")
+
+    # 7. Отправка уведомления в Telegram об успехе
+    send_telegram_notification(
+        f"🚀 *V-Merge успешно обновлен!*\n\n"
+        f"📅 Время: `{current_time}`\n"
+        f"🔗 Активных конфигураций: `{len(renamed)}`"
+    )
+
     return 0
 
 
