@@ -13,6 +13,7 @@ V-Merge auto-builder.
 import base64
 import ipaddress
 import json
+import os
 import re
 import socket
 import sys
