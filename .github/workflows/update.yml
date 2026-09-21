@@ -2,7 +2,7 @@ name: Update merged configs
 
 on:
   schedule:
-- cron: '55 * * * *'
+    - cron: '55 * * * *'
   workflow_dispatch:
   push:
     branches: [main]
@@ -54,4 +54,3 @@ jobs:
             git commit -m "auto: update configs + geo cache + state [skip ci]"
             git push
           fi
-          
