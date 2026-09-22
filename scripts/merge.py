@@ -1,16 +1,6 @@
 #!/usr/bin/env python3
-"""
-V-Merge auto-builder.
-
-  1. Проверяет, изменились ли источники (по дате обновления внутри файла)
-  2. Если ничего не изменилось — выходит за пару секунд
-  3. Иначе: скачивает, объединяет, дедуплицирует
-  4. Досыпает страны в scripts/geo_cache.json (включая перезапрос "XX")
-  5. Жёстко переписывает имя каждой ссылки: "🇩🇪 DE #N"
-  6. Пишет output/merged.txt и output/merged.base64.txt с обновленной шапкой
-  7. Отправляет уведомление в Telegram об успешном обновлении
-"""
 import base64
+import hashlib
 import ipaddress
 import json
 import os
@@ -33,13 +23,11 @@ OUT_B64 = ROOT / "output" / "merged.base64.txt"
 
 UA = "Mozilla/5.0 (compatible; V-Merge-Bot/1.0)"
 
-# ---- Настройки ----
-GEO_ENABLED = True        # False — выключить геолокацию
-MAX_NEW = 200             # сколько хостов обрабатывать за прогон (вкл. XX)
-DELAY_BETWEEN = 1.5       # пауза между запросами (ip-api.com: 45/мин)
-RENAME_ENABLED = True     # переименовывать ссылки в "🇩🇪 DE #N"
-FORCE_REBUILD = False     # True или --force — игнорировать кэш состояния
-# -------------------
+GEO_ENABLED = True
+MAX_NEW = 200
+DELAY_BETWEEN = 1.5
+RENAME_ENABLED = True
+FORCE_REBUILD = False
 
 FLAGS = {
     "RU": "🇷🇺", "US": "🇺🇸", "DE": "🇩🇪", "NL": "🇳🇱", "FR": "🇫🇷",
@@ -57,17 +45,17 @@ FLAGS = {
 }
 
 
-def flag(cc: str) -> str:
+def flag(cc):
     return FLAGS.get(cc, "🏴")
 
 
-def fetch(url: str, timeout: int = 30) -> str:
+def fetch(url, timeout=30):
     req = urllib.request.Request(url, headers={"User-Agent": UA})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return r.read().decode("utf-8", errors="ignore")
 
 
-def decode_subscription(text: str) -> str:
+def decode_subscription(text):
     text = text.strip()
     if not text:
         return ""
@@ -84,8 +72,6 @@ def decode_subscription(text: str) -> str:
     return text
 
 
-# ---------- Парсер даты обновления источника ----------
-
 RE_FI = re.compile(
     r"обновлено:\s*(\d{1,2})/(\d{1,2})/(\d{4})\s+(\d{1,2}):(\d{2})\s*(AM|PM)?",
     re.IGNORECASE,
@@ -96,8 +82,7 @@ RE_IGARECK = re.compile(
 )
 
 
-def parse_source_updated_at(text: str):
-    """Возвращает строку ISO 'YYYY-MM-DD HH:MM' или None."""
+def parse_source_updated_at(text):
     head = "\n".join(text.splitlines()[:15])
 
     m = RE_FI.search(head)
@@ -126,7 +111,7 @@ def parse_source_updated_at(text: str):
     return None
 
 
-def load_state() -> dict:
+def load_state():
     if not STATE_FILE.exists():
         return {}
     try:
@@ -135,7 +120,7 @@ def load_state() -> dict:
         return {}
 
 
-def save_state(state: dict) -> None:
+def save_state(state):
     STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
     STATE_FILE.write_text(
         json.dumps(state, ensure_ascii=False, indent=2, sort_keys=True),
@@ -143,7 +128,7 @@ def save_state(state: dict) -> None:
     )
 
 
-def check_sources_changed(urls: list, force: bool = False) -> tuple:
+def check_sources_changed(urls, force=False):
     if force:
         print("[i] --force: пропускаю проверку источников")
         return True, load_state(), {}
@@ -159,25 +144,27 @@ def check_sources_changed(urls: list, force: bool = False) -> tuple:
             contents[url] = raw
             dt = parse_source_updated_at(raw)
             prev = old.get(url)
+
+            if dt is None:
+                h = hashlib.md5(raw.encode("utf-8", errors="ignore")).hexdigest()[:12]
+                dt = f"hash:{h}"
+
             if dt != prev:
                 changed = True
-                print(f"[~] {url}\n    было: {prev or '—'} → стало: {dt or 'не определено'}")
+                print(f"[~] {url}\n    было: {prev or '—'} → стало: {dt}")
             else:
-                print(f"[=] {url}\n    без изменений ({dt or '—'})")
-            if dt:
-                new_state[url] = dt
+                print(f"[=] {url}\n    без изменений ({dt})")
+
+            new_state[url] = dt
         except Exception as e:
             print(f"[!] {url}: {e}", file=sys.stderr)
             contents[url] = ""
-            if url not in new_state:
-                new_state[url] = None
+            new_state[url] = old.get(url)
 
     return changed, new_state, contents
 
 
-# ---------- Парсинг ссылок ----------
-
-def parse_link(link: str):
+def parse_link(link):
     try:
         if link.startswith("vmess://"):
             b64 = link[len("vmess://"):]
@@ -209,7 +196,7 @@ def parse_link(link: str):
         return None, None, None
 
 
-def rename_link(link: str, tag: str) -> str:
+def rename_link(link, tag):
     if not RENAME_ENABLED:
         return link
 
@@ -231,9 +218,7 @@ def rename_link(link: str, tag: str) -> str:
     return f"{base}#{urllib.parse.quote(tag)}"
 
 
-# ---------- Геолокация ----------
-
-def load_geo() -> dict:
+def load_geo():
     if not GEO_CACHE.exists():
         return {}
     try:
@@ -247,7 +232,7 @@ def load_geo() -> dict:
         return {}
 
 
-def save_geo(data: dict) -> None:
+def save_geo(data):
     GEO_CACHE.parent.mkdir(parents=True, exist_ok=True)
     GEO_CACHE.write_text(
         json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True),
@@ -255,7 +240,7 @@ def save_geo(data: dict) -> None:
     )
 
 
-def resolve_ip(host: str):
+def resolve_ip(host):
     try:
         ipaddress.ip_address(host)
         return host
@@ -266,7 +251,7 @@ def resolve_ip(host: str):
             return None
 
 
-def lookup_country_ip(ip: str) -> str:
+def lookup_country_ip(ip):
     url = f"http://ip-api.com/json/{ip}?fields=status,countryCode"
     req = urllib.request.Request(url, headers={"User-Agent": UA})
     try:
@@ -283,7 +268,7 @@ def lookup_country_ip(ip: str) -> str:
     return "XX"
 
 
-def update_geo_cache(hosts: list, geo: dict) -> dict:
+def update_geo_cache(hosts, geo):
     if not GEO_ENABLED:
         return geo
 
@@ -330,9 +315,7 @@ def update_geo_cache(hosts: list, geo: dict) -> dict:
     return geo
 
 
-# ---------- Telegram Уведомления ----------
-
-def send_telegram_notification(message: str) -> None:
+def send_telegram_notification(message):
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     chat_id = os.environ.get("TELEGRAM_CHAT_ID")
 
@@ -355,9 +338,7 @@ def send_telegram_notification(message: str) -> None:
         print(f"[!] Ошибка при отправке уведомления в Telegram: {e}", file=sys.stderr)
 
 
-# ---------- Основной сценарий ----------
-
-def main() -> int:
+def main():
     force = FORCE_REBUILD or ("--force" in sys.argv)
 
     if not SOURCES.exists():
@@ -372,7 +353,6 @@ def main() -> int:
         print("[!] sources.txt пустой", file=sys.stderr)
         return 0
 
-    # 1. Проверяем, изменились ли источники
     changed, new_state, cached = check_sources_changed(urls, force=force)
     save_state(new_state)
 
@@ -383,7 +363,6 @@ def main() -> int:
         else:
             return 0
 
-    # 2. Скачиваем / берём из кэша
     all_links = []
     for url in urls:
         try:
@@ -401,7 +380,6 @@ def main() -> int:
 
     print(f"[=] Всего строк: {len(all_links)}")
 
-    # 3. Дедупликация
     seen = set()
     unique_links = []
     for link in all_links:
@@ -414,7 +392,6 @@ def main() -> int:
     all_links = unique_links
     print(f"[=] После дедупликации: {len(all_links)}")
 
-    # 4. Геолокация
     hosts = [h for _, h, _ in (parse_link(l) for l in all_links) if h]
     geo = load_geo()
     print(f"[=] Записей в кэше до: {len(geo)}")
@@ -422,7 +399,6 @@ def main() -> int:
     save_geo(geo)
     print(f"[=] Записей в кэше после: {len(geo)}")
 
-    # 5. Переименование
     renamed = []
     counter = {}
     for link in all_links:
@@ -432,9 +408,6 @@ def main() -> int:
         tag = f"{flag(cc)} {cc} #{counter[cc]}"
         renamed.append(rename_link(link, tag))
 
-    # 6. Запись с шапкой метаданных под V-Merge 🚀
-    #    ВАЖНО: сайт идёт через #profile-web-page-url (его понимают Hiddify, v2rayNG, NekoBox и др.),
-    #    а Telegram — через #support-url.
     current_time = datetime.now().strftime("%d.%m.%Y %H:%M")
     metadata_header = (
         "#profile-title: V-Merge 🚀\n"
@@ -457,7 +430,6 @@ def main() -> int:
     print(f"[✓] {OUT_PLAIN} ({len(renamed)} шт.)")
     print(f"[✓] {OUT_B64}")
 
-    # 7. Отправка уведомления в Telegram об успехе
     send_telegram_notification(
         f"🚀 *V-Merge успешно обновлен!*\n\n"
         f"📅 Время: `{current_time}`\n"
