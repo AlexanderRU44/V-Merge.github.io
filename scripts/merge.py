@@ -433,11 +433,13 @@ def main() -> int:
         renamed.append(rename_link(link, tag))
 
     # 6. Запись с шапкой метаданных под V-Merge 🚀
+    #    ВАЖНО: сайт идёт через #profile-web-page-url (его понимают Hiddify, v2rayNG, NekoBox и др.),
+    #    а Telegram — через #support-url.
     current_time = datetime.now().strftime("%d.%m.%Y %H:%M")
     metadata_header = (
         "#profile-title: V-Merge 🚀\n"
         f"#announce: Обновлено: {current_time} | Автообновление\n"
-        "#support-url: https://alexanderru44.github.io/V-Merge.github.io/\n"
+        "#profile-web-page-url: https://alexanderru44.github.io/V-Merge.github.io/\n"
         "#support-url: https://t.me/V_Merge_VPN\n"
         "#profile-update-interval: 1\n"
     )
@@ -448,7 +450,7 @@ def main() -> int:
 
     OUT_PLAIN.parent.mkdir(parents=True, exist_ok=True)
     OUT_PLAIN.write_text(text, encoding="utf-8")
-    
+
     OUT_B64.write_text(
         base64.b64encode(text.encode("utf-8")).decode(), encoding="utf-8"
     )
