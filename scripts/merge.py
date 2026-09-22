@@ -438,7 +438,7 @@ def main() -> int:
     current_time = datetime.now().strftime("%d.%m.%Y %H:%M")
     metadata_header = (
         "#profile-title: V-Merge 🚀\n"
-        f"#announce: Обновлено: {current_time} | Автообновление\n"
+        f"#announce: Обновлено: {current_time} | Конфигов: {len(renamed)} | Автообновление\n"
         "#profile-web-page-url: https://alexanderru44.github.io/V-Merge.github.io/\n"
         "#support-url: https://t.me/V_Merge_VPN\n"
         "#profile-update-interval: 1\n"
