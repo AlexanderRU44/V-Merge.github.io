@@ -3,3 +3,4 @@ https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main
 https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/BLACK_VLESS_RUS_mobile.txt
 https://raw.githubusercontent.com/flaafix/AetrisVPN/refs/heads/main/AetrisVPN.txt
 https://raw.githubusercontent.com/zieng2/wl/main/vless_universal.txt
+https://sub.vlessfo.ru/vlessforu/working_configs.txt
