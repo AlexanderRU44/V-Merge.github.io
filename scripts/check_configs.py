@@ -1,83 +1,110 @@
 #!/usr/bin/env python3
+import base64
+import json
+import socket
 import sys
+import urllib.parse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-from python_v2ray.downloader import BinaryDownloader
-from python_v2ray.tester import ConnectionTester
-from python_v2ray.config_parser import parse_uri
+MERGED_PATH = Path("output/merged.txt")
+OUTPUT_PATH = Path("output/working_configs.txt")
+
+TIMEOUT = 3.0       # Таймаут TCP-подключения (сек)
+MAX_WORKERS = 100   # Параллельных проверок
+
+
+def parse_host_port(link):
+    """Извлекает host и port из ссылки любого протокола."""
+    try:
+        if link.startswith("vmess://"):
+            b64 = link[len("vmess://"):].split("#")[0]
+            b64 += "=" * (-len(b64) % 4)
+            data = json.loads(base64.b64decode(b64).decode("utf-8", "ignore"))
+            host = (data.get("add") or "").strip()
+            port = data.get("port", "")
+            return host, int(port) if port else None
+
+        # vless, trojan, ss, hysteria2, hy2
+        parsed = urllib.parse.urlparse(link)
+        host = parsed.hostname
+        port = parsed.port
+
+        if not host or not port:
+            # Fallback: ручной разбор "user@host:port?..."
+            rest = link.split("://", 1)[1].split("#", 1)[0]
+            if "@" in rest:
+                rest = rest.split("@", 1)[1]
+            host_port = rest.split("/", 1)[0].split("?", 1)[0]
+            if ":" in host_port:
+                h, p = host_port.rsplit(":", 1)
+                host = h
+                port = p
+
+        if host and port:
+            return host.strip(), int(port)
+    except Exception:
+        pass
+    return None, None
+
+
+def tcp_check(host, port):
+    """Проверяет, открыт ли TCP-порт."""
+    try:
+        with socket.create_connection((host, port), timeout=TIMEOUT):
+            return True
+    except Exception:
+        return False
 
 
 def main():
-    merged_path = Path("output/merged.txt")
-    if not merged_path.exists():
+    if not MERGED_PATH.exists():
         print("[!] output/merged.txt не найден")
         return 1
 
-    # 1. Читаем ссылки, пропускаем комментарии
     links = []
-    for line in merged_path.read_text(encoding="utf-8").splitlines():
+    for line in MERGED_PATH.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if "://" in line and not line.startswith("#"):
             links.append(line)
 
-    print(f"[=] Прочитано ссылок: {len(links)}")
+    print(f"[=] Всего ссылок: {len(links)}")
     if not links:
-        print("[!] Нет ссылок для проверки")
+        print("[!] Нет ссылок")
         return 0
 
-    # 2. Скачиваем бинарники (Xray-core и т.д.)
-    project_root = Path("./")
-    print("[=] Проверка бинарников...")
-    try:
-        downloader = BinaryDownloader(project_root)
-        downloader.ensure_all()
-    except Exception as e:
-        print(f"[!] Ошибка скачивания бинарников: {e}")
-        return 1
-
-    # 3. Парсим ссылки
-    print("[=] Парсинг ссылок...")
-    parsed_configs = []
+    # Готовим список (link, host, port)
+    tasks = []
     for link in links:
-        try:
-            cfg = parse_uri(link)
-            if cfg:
-                parsed_configs.append(cfg)
-        except Exception:
-            pass
+        host, port = parse_host_port(link)
+        if host and port:
+            tasks.append((link, host, port))
+        else:
+            print(f"[!] Не удалось распарсить: {link[:80]}")
 
-    print(f"[=] Успешно распарсено: {len(parsed_configs)}")
-    if not parsed_configs:
-        print("[!] Не удалось распарсить ни одной ссылки")
-        return 0
+    print(f"[=] К проверке: {len(tasks)}")
 
-    # 4. Тестируем
-    print(f"[=] Тестирование {len(parsed_configs)} конфигов (это может занять время)...")
-    tester = ConnectionTester(
-        vendor_path=str(project_root / "vendor"),
-        core_engine_path=str(project_root / "core_engine"),
-    )
+    # Параллельная TCP-проверка
+    working = []
+    dead = 0
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        futures = {executor.submit(tcp_check, h, p): link for link, h, p in tasks}
+        for i, fut in enumerate(as_completed(futures), 1):
+            link = futures[fut]
+            try:
+                if fut.result():
+                    working.append(link)
+            except Exception:
+                dead += 1
+            if i % 50 == 0:
+                print(f"  [{i}/{len(tasks)}] рабочих: {len(working)}, мёртвых: {dead}")
 
-    try:
-        results = tester.test_uris(parsed_configs)
-    except Exception as e:
-        print(f"[!] Ошибка во время тестирования: {e}")
-        return 1
+    print(f"[✓] TCP-проверка завершена: {len(working)} рабочих из {len(tasks)}")
+    print(f"[=] Отсеяно мёртвых: {len(tasks) - len(working)}")
 
-    # 5. Отбираем рабочие (пинг > 0)
-    working_links = []
-    for i, res in enumerate(results):
-        ping = res.get("ping_ms", 0) if isinstance(res, dict) else getattr(res, "ping_ms", 0)
-        if ping and ping > 0:
-            working_links.append(links[i])
-
-    print(f"[✓] Рабочих конфигов: {len(working_links)} из {len(links)}")
-
-    # 6. Сохраняем
-    output_path = Path("output/working_configs.txt")
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text("\n".join(working_links), encoding="utf-8")
-    print(f"[✓] Сохранено в {output_path}")
+    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    OUTPUT_PATH.write_text("\n".join(working), encoding="utf-8")
+    print(f"[✓] Сохранено в {OUTPUT_PATH}")
 
     return 0
 
