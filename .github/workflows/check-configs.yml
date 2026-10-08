@@ -21,10 +21,6 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
-        run: |
-          pip install python-v2ray
-
       - name: Run check script
         run: python scripts/check_configs.py
 
