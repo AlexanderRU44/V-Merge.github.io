@@ -1,10 +1,10 @@
 {
-  "https://raw.githubusercontent.com/FLAT447/v2ray-lists/refs/heads/main/BLACK_LTE.txt": "hash:117c164e9813",
-  "https://raw.githubusercontent.com/FLAT447/v2ray-lists/refs/heads/main/WHITE_LITE.txt": "hash:a69d52ddcbea",
-  "https://raw.githubusercontent.com/flaafix/AetrisVPN-black-list/refs/heads/main/configs.txt": "2026-10-22 21:29",
-  "https://raw.githubusercontent.com/flaafix/AetrisVPN/refs/heads/main/AetrisVPN.txt": "2026-10-22 20:23",
-  "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/BLACK_VLESS_RUS_mobile.txt": "2026-10-22 21:53",
-  "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/Vless-Reality-White-Lists-Rus-Mobile.txt": "2026-10-22 21:12",
-  "https://raw.githubusercontent.com/zieng2/wl/main/vless_universal.txt": "hash:047c9f4633c0",
-  "https://sub.vlessfo.ru/vlessforu/working_configs.txt": "hash:be65a53ee2cb"
+  "https://raw.githubusercontent.com/FLAT447/v2ray-lists/refs/heads/main/BLACK_LTE.txt": "hash:48920f2142bf",
+  "https://raw.githubusercontent.com/FLAT447/v2ray-lists/refs/heads/main/WHITE_LITE.txt": "hash:d2b1fd1e6b4c",
+  "https://raw.githubusercontent.com/flaafix/AetrisVPN-black-list/refs/heads/main/configs.txt": "2026-10-22 23:59",
+  "https://raw.githubusercontent.com/flaafix/AetrisVPN/refs/heads/main/AetrisVPN.txt": "2026-10-22 23:38",
+  "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/BLACK_VLESS_RUS_mobile.txt": "2026-10-23 01:58",
+  "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/Vless-Reality-White-Lists-Rus-Mobile.txt": "2026-10-23 01:19",
+  "https://raw.githubusercontent.com/zieng2/wl/main/vless_universal.txt": "hash:74db50e5f541",
+  "https://sub.vlessfo.ru/vlessforu/working_configs.txt": "hash:76d0fa624dd8"
 }
